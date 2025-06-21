@@ -1,0 +1,33 @@
+================================================================================
+REDSHIFT SERVERLESS KNOWLEDGE BASE DIAGNOSTIC REPORT
+================================================================================
+Generated: 2025-06-21 07:32:36
+
+WORKING NAMESPACE ANALYSIS
+----------------------------------------
+ARN: arn:aws:redshift-serverless:us-west-2:533267284022:namespace/9e7060fb-2754-41e4-8274-d50d95cbca1e
+Workgroups: 0
+Connectivity Tests: 0/0 passed
+Total Tables: 0
+Knowledge Bases: 0
+
+BROKEN NAMESPACE ANALYSIS
+----------------------------------------
+ARN: arn:aws:redshift-serverless:us-west-2:533267284022:namespace/6e551b08-89e7-44e2-858f-8a445171f5b3
+Workgroups: 0
+Connectivity Tests: 0/0 passed
+Total Tables: 0
+Knowledge Bases: 0
+
+ISSUES FOUND IN BROKEN NAMESPACE
+----------------------------------------
+• Cannot retrieve namespace details
+
+DETAILED CONNECTIVITY RESULTS
+----------------------------------------
+
+Working Namespace:
+
+Broken Namespace:
+
+================================================================================

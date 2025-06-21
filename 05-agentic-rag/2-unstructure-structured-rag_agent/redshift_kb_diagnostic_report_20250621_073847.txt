@@ -1,0 +1,43 @@
+================================================================================
+REDSHIFT SERVERLESS KNOWLEDGE BASE DIAGNOSTIC REPORT
+================================================================================
+Generated: 2025-06-21 07:38:47
+
+WORKING NAMESPACE ANALYSIS
+----------------------------------------
+ARN: arn:aws:redshift-serverless:us-west-2:533267284022:namespace/9e7060fb-2754-41e4-8274-d50d95cbca1e
+Workgroups: 1
+Connectivity Tests: 1/1 passed
+Total Tables: 4
+Knowledge Bases: 0
+
+BROKEN NAMESPACE ANALYSIS
+----------------------------------------
+ARN: arn:aws:redshift-serverless:us-west-2:533267284022:namespace/6e551b08-89e7-44e2-858f-8a445171f5b3
+Workgroups: 1
+Connectivity Tests: 1/1 passed
+Total Tables: 4
+Knowledge Bases: 0
+
+ISSUES FOUND IN BROKEN NAMESPACE
+----------------------------------------
+• No Knowledge Bases found using this workgroup
+
+RECOMMENDATIONS
+----------------------------------------
+• Verify Knowledge Base configuration points to correct workgroup
+
+DETAILED CONNECTIVITY RESULTS
+----------------------------------------
+
+Working Namespace:
+  ✓ sds-ecommerce-wg/sds-ecommerce
+    Tables: 4
+    Sample: orders, order_items, payments, reviews
+
+Broken Namespace:
+  ✓ sds-ecommerce-wg-0205647/sds-ecommerce
+    Tables: 4
+    Sample: orders, order_items, payments, reviews
+
+================================================================================
