@@ -1,0 +1,12 @@
+[project]
+name = "ag-ui-strands-example"
+version = "0.1.0"
+description = "Minimal AG-UI + Strands Agent Example"
+requires-python = ">=3.12"
+dependencies = [
+    "strands-agents>=1.15.0",
+    "ag-ui-protocol>=0.1.10",
+    "fastapi>=0.115.0",
+    "uvicorn>=0.30.0",
+    "ag_ui_strands @ git+https://github.com/ag-ui-protocol/ag-ui.git#subdirectory=integrations/aws-strands/python",
+]
