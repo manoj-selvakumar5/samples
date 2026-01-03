@@ -8,6 +8,8 @@ This folder contains CloudFormation templates for deploying Amazon SageMaker Stu
 |------|-------------|
 | `original_strands_workshop_studio.yaml` | Base template for tutorials in `01-tutorials/01-fundamentals/` and `01-tutorials/02-advanced/` |
 | `strands_workshop_studio.yaml` | Extended template with AgentCore permissions for `01-tutorials/03-deployment/03-agentcore-deployment/` |
+| `original_iam_policy.json` | Base IAM policy template for WSParticipantRole |
+| `iam_policy.json` | Extended policy with AgentCore permissions for deployment tutorials |
 
 ## Template Overview
 
@@ -294,6 +296,24 @@ arn:aws:bedrock-agentcore:*:*:workload-identity-directory/default/workload-ident
 
 **Reference:**
 - https://docs.aws.amazon.com/aws-managed-policy/latest/reference/BedrockAgentCoreFullAccess.html
+
+#### Fix 4: IAM Policy for WSParticipantRole
+
+**Issue:** Workshop participants using WSParticipantRole encountered `AccessDeniedException` for `bedrock-agentcore:ListAgentRuntimes` when running the AgentCore deployment tutorial.
+
+**Root Cause:** The `original_iam_policy.json` (used for WSParticipantRole) has `bedrock:*` permissions but NO `bedrock-agentcore:*` permissions. These are separate service namespaces in AWS IAM.
+
+**File Created:** `iam_policy.json`
+
+**What was added:**
+
+New `BedrockAgentCoreAccess` statement with 16 AgentCore actions:
+- Runtime lifecycle: `CreateAgentRuntime`, `DeleteAgentRuntime`, `GetAgentRuntime`, `UpdateAgentRuntime`, `ListAgentRuntimes`, `ListAgentRuntimeVersions`
+- Endpoint management: `CreateAgentRuntimeEndpoint`, `DeleteAgentRuntimeEndpoint`, `GetAgentRuntimeEndpoint`, `UpdateAgentRuntimeEndpoint`, `ListAgentRuntimeEndpoints`
+- Invocation: `InvokeAgentRuntime`
+- Workload Identity: `CreateWorkloadIdentity`, `GetWorkloadIdentity`, `DeleteWorkloadIdentity`, `ListWorkloadIdentities`
+
+**Resource:** `arn:aws:bedrock-agentcore:*:*:*`
 
 ---
 
