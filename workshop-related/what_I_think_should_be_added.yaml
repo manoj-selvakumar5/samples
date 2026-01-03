@@ -1,0 +1,87 @@
+        - PolicyName: codebuild-access
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - codebuild:CreateProject
+                  - codebuild:UpdateProject
+                  - codebuild:DeleteProject
+                  - codebuild:StartBuild
+                  - codebuild:StopBuild
+                  - codebuild:BatchGetBuilds
+                  - codebuild:BatchGetProjects
+                  - codebuild:ListProjects
+                Resource: "*"
+        - PolicyName: bedrock-agentcore-access
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:CreateAgentCore
+                  - bedrock:UpdateAgentCore
+                  - bedrock:DeleteAgentCore
+                  - bedrock:GetAgentCore
+                  - bedrock:ListAgentCores
+                  - bedrock:InvokeAgentCore
+                  - bedrock:CreateAgentCoreAlias
+                  - bedrock:UpdateAgentCoreAlias
+                  - bedrock:DeleteAgentCoreAlias
+                  - bedrock:GetAgentCoreAlias
+                  - bedrock:ListAgentCoreAliases
+                Resource: "*"
+        - PolicyName: enhanced-ecr-access
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecr:CreateRepository
+                  - ecr:DescribeRepositories
+                  - ecr:GetAuthorizationToken
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                  - ecr:DescribeImages
+                  - ecr:ListImages
+                Resource: "*"
+        - PolicyName: enhanced-iam-agentcore
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - iam:CreateRole
+                  - iam:DeleteRole
+                  - iam:GetRole
+                  - iam:PassRole
+                  - iam:AttachRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:PutRolePolicy
+                  - iam:DeleteRolePolicy
+                  - iam:GetRolePolicy
+                  - iam:ListAttachedRolePolicies
+                  - iam:ListRolePolicies
+                  - iam:TagRole
+                  - iam:UntagRole
+                  - iam:CreatePolicy
+                  - iam:DeletePolicy
+                  - iam:GetPolicy
+                Resource: 
+                  - "arn:aws:iam::*:role/AmazonBedrockAgentCore*"
+                  - "arn:aws:iam::*:role/AmazonBedrockAgentCoreSDK*"
+                  - "arn:aws:iam::*:policy/BedrockAgentCore*"
+        - PolicyName: logs-access
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:DescribeLogGroups
+                  - logs:DescribeLogStreams
+                  - logs:GetLogEvents
+                Resource: "*"
