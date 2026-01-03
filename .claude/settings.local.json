@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./ash_tool/ash:*)",
+      "Bash(uvx git+https://github.com/awslabs/automated-security-helper.git@v3.0.0:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
