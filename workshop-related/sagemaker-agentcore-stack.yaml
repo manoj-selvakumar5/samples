@@ -1,0 +1,312 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "SageMaker Notebook for Strands Agent Deployment to AgentCore using Starter Toolkit"
+
+# ============================================================================
+# PARAMETERS
+# ============================================================================
+Parameters:
+  NotebookInstanceName:
+    Type: String
+    Default: "strands-agentcore-notebook"
+    Description: "Name for the SageMaker notebook instance"
+
+  InstanceType:
+    Type: String
+    Default: "ml.t3.medium"
+    Description: "SageMaker notebook instance type"
+    AllowedValues:
+      - ml.t3.medium
+      - ml.t3.large
+      - ml.t3.xlarge
+      - ml.m5.large
+      - ml.m5.xlarge
+
+# ============================================================================
+# RESOURCES
+# ============================================================================
+Resources:
+
+  # ==========================================================================
+  # SAGEMAKER EXECUTION ROLE
+  # ==========================================================================
+  # This role enables the starter toolkit commands:
+  #   - agentcore create  (scaffold project)
+  #   - agentcore dev     (local testing)
+  #   - agentcore launch  (deploy to AgentCore Runtime)
+  #   - agentcore invoke  (test deployed agent)
+  # ==========================================================================
+
+  SageMakerExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AWS::StackName}-sagemaker-execution-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sagemaker.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        # Required: AgentCore full access for managing runtimes
+        - arn:aws:iam::aws:policy/BedrockAgentCoreFullAccess
+        # Optional: For basic SageMaker notebook operations
+        - arn:aws:iam::aws:policy/AmazonSageMakerFullAccess
+      Policies:
+        # ------------------------------------------------------------------
+        # STARTER TOOLKIT PERMISSIONS
+        # These are needed for `agentcore launch` to work
+        # Reference: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-permissions.html
+        # ------------------------------------------------------------------
+        - PolicyName: StarterToolkitPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # IAM: Create/manage agent execution roles
+              # The toolkit auto-creates roles named *BedrockAgentCore*
+              - Sid: IAMRoleManagement
+                Effect: Allow
+                Action:
+                  - iam:CreateRole
+                  - iam:DeleteRole
+                  - iam:GetRole
+                  - iam:PutRolePolicy
+                  - iam:DeleteRolePolicy
+                  - iam:AttachRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:TagRole
+                  - iam:ListRolePolicies
+                  - iam:ListAttachedRolePolicies
+                Resource:
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/*BedrockAgentCore*"
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/service-role/*BedrockAgentCore*"
+
+              # IAM: Pass the created role to AgentCore Runtime
+              - Sid: IAMPassRole
+                Effect: Allow
+                Action: iam:PassRole
+                Resource:
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/AmazonBedrockAgentCore*"
+                  - !Sub "arn:aws:iam::${AWS::AccountId}:role/service-role/AmazonBedrockAgentCore*"
+
+              # CodeBuild: Build container images (no local Docker needed)
+              - Sid: CodeBuildProjectAccess
+                Effect: Allow
+                Action:
+                  - codebuild:StartBuild
+                  - codebuild:BatchGetBuilds
+                  - codebuild:ListBuildsForProject
+                  - codebuild:CreateProject
+                  - codebuild:UpdateProject
+                  - codebuild:BatchGetProjects
+                Resource:
+                  - !Sub "arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/bedrock-agentcore-*"
+                  - !Sub "arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:build/bedrock-agentcore-*"
+
+              - Sid: CodeBuildListAccess
+                Effect: Allow
+                Action: codebuild:ListProjects
+                Resource: "*"
+
+              # ECR: Store and manage container images
+              - Sid: ECRRepositoryAccess
+                Effect: Allow
+                Action:
+                  - ecr:CreateRepository
+                  - ecr:DescribeRepositories
+                  - ecr:GetRepositoryPolicy
+                  - ecr:InitiateLayerUpload
+                  - ecr:CompleteLayerUpload
+                  - ecr:PutImage
+                  - ecr:UploadLayerPart
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                  - ecr:ListImages
+                  - ecr:TagResource
+                Resource:
+                  - !Sub "arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/bedrock-agentcore-*"
+
+              - Sid: ECRAuthorizationAccess
+                Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: "*"
+
+              # S3: Store build artifacts and source code
+              - Sid: S3Access
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:ListBucket
+                  - s3:CreateBucket
+                  - s3:PutLifecycleConfiguration
+                Resource:
+                  - "arn:aws:s3:::bedrock-agentcore-*"
+                  - "arn:aws:s3:::bedrock-agentcore-*/*"
+
+              # CloudWatch Logs: View build and runtime logs
+              - Sid: CloudWatchLogsAccess
+                Effect: Allow
+                Action:
+                  - logs:GetLogEvents
+                  - logs:DescribeLogGroups
+                  - logs:DescribeLogStreams
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/*"
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/*"
+
+              # Bedrock: Test agents locally in notebook
+              - Sid: BedrockModelAccess
+                Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource: "*"
+
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-sagemaker-execution-role"
+        - Key: Purpose
+          Value: "Strands Agent Deployment to AgentCore"
+
+  # ==========================================================================
+  # AGENT EXECUTION ROLE (OPTIONAL - for pre-creation)
+  # ==========================================================================
+  # NOTE: The starter toolkit (`agentcore launch`) creates this role
+  # automatically. This is included if you want to pre-create or customize
+  # the role instead of letting the toolkit create it.
+  # ==========================================================================
+
+  AgentExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${AWS::StackName}-agent-execution-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AssumeRolePolicy
+            Effect: Allow
+            Principal:
+              Service: bedrock-agentcore.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnLike:
+                aws:SourceArn: !Sub "arn:aws:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:*"
+      Policies:
+        - PolicyName: AgentCoreRuntimePolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # ECR Image Access
+              - Sid: ECRImageAccess
+                Effect: Allow
+                Action:
+                  - ecr:BatchGetImage
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchCheckLayerAvailability
+                Resource: !Sub "arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/*"
+
+              - Sid: ECRTokenAccess
+                Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: "*"
+
+              # CloudWatch Logs
+              - Sid: CloudWatchLogs
+                Effect: Allow
+                Action:
+                  - logs:DescribeLogStreams
+                  - logs:CreateLogGroup
+                  - logs:DescribeLogGroups
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource:
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/runtimes/*"
+
+              # X-Ray Tracing
+              - Sid: XRayTracing
+                Effect: Allow
+                Action:
+                  - xray:PutTraceSegments
+                  - xray:PutTelemetryRecords
+                  - xray:GetSamplingRules
+                  - xray:GetSamplingTargets
+                Resource: "*"
+
+              # CloudWatch Metrics
+              - Sid: CloudWatchMetrics
+                Effect: Allow
+                Action: cloudwatch:PutMetricData
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    cloudwatch:namespace: bedrock-agentcore
+
+              # Workload Identity Access
+              - Sid: WorkloadIdentityAccess
+                Effect: Allow
+                Action:
+                  - bedrock-agentcore:GetWorkloadAccessToken
+                  - bedrock-agentcore:GetWorkloadAccessTokenForJWT
+                  - bedrock-agentcore:GetWorkloadAccessTokenForUserId
+                Resource:
+                  - !Sub "arn:aws:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:workload-identity-directory/default"
+                  - !Sub "arn:aws:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:workload-identity-directory/default/workload-identity/*"
+
+              # Bedrock Model Invocation
+              - Sid: BedrockModelInvocation
+                Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource: "*"
+
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-agent-execution-role"
+        - Key: Purpose
+          Value: "AgentCore Runtime Execution"
+
+  # ==========================================================================
+  # SAGEMAKER NOTEBOOK INSTANCE
+  # ==========================================================================
+
+  SageMakerNotebook:
+    Type: AWS::SageMaker::NotebookInstance
+    Properties:
+      NotebookInstanceName: !Ref NotebookInstanceName
+      InstanceType: !Ref InstanceType
+      RoleArn: !GetAtt SageMakerExecutionRole.Arn
+      PlatformIdentifier: notebook-al2-v2
+      Tags:
+        - Key: Name
+          Value: !Ref NotebookInstanceName
+        - Key: Purpose
+          Value: "Strands Agent Deployment to AgentCore"
+
+# ============================================================================
+# OUTPUTS
+# ============================================================================
+Outputs:
+  NotebookInstanceName:
+    Description: "Name of the SageMaker notebook instance"
+    Value: !Ref SageMakerNotebook
+
+  SageMakerExecutionRoleArn:
+    Description: "ARN of the SageMaker execution role (for starter toolkit)"
+    Value: !GetAtt SageMakerExecutionRole.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-SageMakerExecutionRoleArn"
+
+  AgentExecutionRoleArn:
+    Description: "ARN of the agent execution role (pass to agentcore launch if pre-created)"
+    Value: !GetAtt AgentExecutionRole.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-AgentExecutionRoleArn"
+
+  NotebookUrl:
+    Description: "URL to access the SageMaker notebook"
+    Value: !Sub "https://${AWS::Region}.console.aws.amazon.com/sagemaker/home?region=${AWS::Region}#/notebook-instances/${NotebookInstanceName}"
