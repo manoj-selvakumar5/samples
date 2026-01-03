@@ -516,6 +516,11 @@ Resources:
                   - xray:PutTelemetryRecords
                   - xray:GetSamplingRules
                   - xray:GetSamplingTargets
+                  # Transaction Search permissions (for observability)
+                  - xray:UpdateTraceSegmentDestination
+                  - xray:GetTraceSegmentDestination
+                  - xray:GetIndexingRules
+                  - xray:UpdateIndexingRule
                 Resource: "*"
         # Service-linked role for runtime identity management
         # Reference: https://docs.aws.amazon.com/aws-managed-policy/latest/reference/BedrockAgentCoreFullAccess.html
@@ -530,6 +535,28 @@ Resources:
                 Condition:
                   StringEquals:
                     iam:AWSServiceName: "runtime-identity.bedrock-agentcore.amazonaws.com"
+        # CloudWatch Logs Delivery for observability pipelines
+        # Reference: https://docs.aws.amazon.com/aws-managed-policy/latest/reference/BedrockAgentCoreFullAccess.html
+        - PolicyName: agentcore-observability-logs
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Sid: CloudWatchLogsDeliveryAccess
+                Effect: Allow
+                Action:
+                  - logs:PutDeliverySource
+                  - logs:PutDeliveryDestination
+                  - logs:CreateDelivery
+                  - logs:DeleteDeliverySource
+                  - logs:DeleteDeliveryDestination
+                  - logs:DeleteDelivery
+                  - logs:GetDelivery
+                  - logs:GetDeliverySource
+                  - logs:GetDeliveryDestination
+                  - logs:DescribeDeliveries
+                  - logs:DescribeDeliverySources
+                  - logs:DescribeDeliveryDestinations
+                Resource: "*"
 
 
   DefaultVpcLambda:

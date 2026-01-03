@@ -273,6 +273,25 @@ arn:aws:bedrock-agentcore:*:*:workload-identity-directory/default/workload-ident
    - `ecr:DeleteRepository` - Required for `--delete-ecr-repo` flag
    - `ecr:BatchDeleteImage` - Required to delete images before repository deletion
 
+#### Fix 3: Observability Permissions
+
+**Issue:** After successful deployment, observability features failed with:
+- `xray:UpdateTraceSegmentDestination` - Transaction Search configuration failed
+- `logs:PutDeliverySource` - Failed to enable observability for runtime
+
+**What was added:**
+
+1. **X-Ray Transaction Search** - Added to `agentcore-xray-access` policy:
+   - `xray:UpdateTraceSegmentDestination` - Configure trace segment destinations
+   - `xray:GetTraceSegmentDestination` - Read trace segment destinations
+   - `xray:GetIndexingRules` - Read indexing rules
+   - `xray:UpdateIndexingRule` - Update indexing rules
+
+2. **CloudWatch Logs Delivery** - New `agentcore-observability-logs` policy:
+   - `logs:PutDeliverySource`, `logs:PutDeliveryDestination`, `logs:CreateDelivery` - Create observability pipelines
+   - `logs:DeleteDelivery*` - Cleanup delivery resources
+   - `logs:GetDelivery*`, `logs:DescribeDeliveries*` - Read delivery configurations
+
 **Reference:**
 - https://docs.aws.amazon.com/aws-managed-policy/latest/reference/BedrockAgentCoreFullAccess.html
 
