@@ -31,10 +31,10 @@
       "Sid": "AmazonBedrockReadOnly",
       "Effect": "Allow",
       "Action": [
-          "bedrock:Get*",
-          "bedrock:List*",
-          "bedrock:PutUseCaseForModelAccess",
-          "aws-marketplace:ViewSubscriptions"
+        "bedrock:Get*",
+        "bedrock:List*",
+        "bedrock:PutUseCaseForModelAccess",
+        "aws-marketplace:ViewSubscriptions"
       ],
       "Resource": "*"
     },
@@ -42,101 +42,84 @@
       "Sid": "KnowledgeBasePermissions",
       "Effect": "Allow",
       "Action": [
-          "bedrock:CreateKnowledgeBase",
-          "bedrock:UpdateKnowledgeBase",
-          "bedrock:DeleteKnowledgeBase",
-          "bedrock:GetKnowledgeBase",
-          "bedrock:ListKnowledgeBases",
-          "bedrock:Retrieve",
-          "bedrock:RetrieveAndGenerate",
-          "bedrock:ListDataSources",
-          "bedrock:ListIngestionJobs",
-          "bedrock:GetDataSource",
-          "bedrock:StartIngestionJob"
+        "bedrock:CreateKnowledgeBase",
+        "bedrock:UpdateKnowledgeBase",
+        "bedrock:DeleteKnowledgeBase",
+        "bedrock:GetKnowledgeBase",
+        "bedrock:ListKnowledgeBases",
+        "bedrock:Retrieve",
+        "bedrock:RetrieveAndGenerate",
+        "bedrock:ListDataSources",
+        "bedrock:ListIngestionJobs",
+        "bedrock:GetDataSource",
+        "bedrock:StartIngestionJob"
       ],
       "Resource": [
-          "*"
+        "*"
       ]
     },
     {
       "Sid": "EC2Permissions",
       "Effect": "Allow",
       "Action": [
-          "ec2:DescribeVpcs",
-          "ec2:DescribeSubnets"
+        "ec2:DescribeVpcs",
+        "ec2:DescribeSubnets"
       ],
-          "Resource": "*"
+      "Resource": "*"
     },
     {
       "Sid": "BedrockGuardrailPolicies",
       "Effect": "Allow",
       "Action": [
-          "bedrock:InvokeModel",
-          "bedrock:GetGuardrail",
-          "bedrock:ApplyGuardrail",
-          "bedrock:CreateGuardrail",
-          "bedrock:DeleteGuardrail"
+        "bedrock:InvokeModel",
+        "bedrock:GetGuardrail",
+        "bedrock:ApplyGuardrail",
+        "bedrock:CreateGuardrail",
+        "bedrock:DeleteGuardrail"
       ],
-          "Resource": "*"
+      "Resource": "*"
     },
     {
       "Sid": "AgentsPolicyService",
       "Effect": "Allow",
       "Action": [
-          "bedrock:CreateAgent",
-          "bedrock:AssociateAgentKnowledgeBase",
-          "bedrock:CreateAgentActionGroup",
-          "bedrock:CreateAgentAlias",
-          "bedrock:DeleteAgent",
-          "bedrock:DeleteAgentMemory",
-          "bedrock:DeleteAgentActionGroup",
-          "bedrock:DeleteAgentVersion",
-          "bedrock:DeleteAgentAlias",
-          "bedrock:PrepareAgent",
-          "bedrock:DisassociateAgentKnowledgeBase",
-          "bedrock:UpdateAgentAlias",
-          "bedrock:UpdateAgentActionGroup",
-          "bedrock:UpdateAgent",
-          "bedrock:UpdateAgentKnowledgeBase",
-          "bedrock:TagResource",
-          "bedrock:UntagResource",
-          "bedrock:GetAgent",
-          "bedrock:GetAgentKnowledgeBase",
-          "bedrock:GetAgentAlias",
-          "bedrock:GetAgentVersion",
-          "bedrock:GetAgentActionGroup",
-          "bedrock:GetAgentMemory",
-          "bedrock:InvokeInlineAgent",
-          "bedrock:InvokeAgent",
-          "bedrock:ListAgentActionGroups",
-          "bedrock:ListAgentAliases",
-          "bedrock:ListAgentKnowledgeBases",
-          "bedrock:ListAgentVersions",
-          "bedrock:ListAgents"
+        "bedrock:CreateAgent",
+        "bedrock:AssociateAgentKnowledgeBase",
+        "bedrock:CreateAgentActionGroup",
+        "bedrock:CreateAgentAlias",
+        "bedrock:DeleteAgent",
+        "bedrock:DeleteAgentMemory",
+        "bedrock:DeleteAgentActionGroup",
+        "bedrock:DeleteAgentVersion",
+        "bedrock:DeleteAgentAlias",
+        "bedrock:PrepareAgent",
+        "bedrock:DisassociateAgentKnowledgeBase",
+        "bedrock:UpdateAgentAlias",
+        "bedrock:UpdateAgentActionGroup",
+        "bedrock:UpdateAgent",
+        "bedrock:UpdateAgentKnowledgeBase",
+        "bedrock:TagResource",
+        "bedrock:UntagResource",
+        "bedrock:GetAgent",
+        "bedrock:GetAgentKnowledgeBase",
+        "bedrock:GetAgentAlias",
+        "bedrock:GetAgentVersion",
+        "bedrock:GetAgentActionGroup",
+        "bedrock:GetAgentMemory",
+        "bedrock:InvokeInlineAgent",
+        "bedrock:InvokeAgent",
+        "bedrock:ListAgentActionGroups",
+        "bedrock:ListAgentAliases",
+        "bedrock:ListAgentKnowledgeBases",
+        "bedrock:ListAgentVersions",
+        "bedrock:ListAgents"
       ],
       "Resource": "*"
     },
     {
       "Sid": "BedrockAgentCoreAccess",
       "Effect": "Allow",
-      "Action": [
-          "bedrock-agentcore:CreateAgentRuntime",
-          "bedrock-agentcore:CreateAgentRuntimeEndpoint",
-          "bedrock-agentcore:GetAgentRuntime",
-          "bedrock-agentcore:GetAgentRuntimeEndpoint",
-          "bedrock-agentcore:DeleteAgentRuntime",
-          "bedrock-agentcore:DeleteAgentRuntimeEndpoint",
-          "bedrock-agentcore:ListAgentRuntimes",
-          "bedrock-agentcore:ListAgentRuntimeEndpoints",
-          "bedrock-agentcore:ListAgentRuntimeVersions",
-          "bedrock-agentcore:UpdateAgentRuntime",
-          "bedrock-agentcore:UpdateAgentRuntimeEndpoint",
-          "bedrock-agentcore:InvokeAgentRuntime",
-          "bedrock-agentcore:CreateWorkloadIdentity",
-          "bedrock-agentcore:GetWorkloadIdentity",
-          "bedrock-agentcore:DeleteWorkloadIdentity",
-          "bedrock-agentcore:ListWorkloadIdentities"
-      ],
+      "Action": "bedrock-agentcore:*",
       "Resource": "arn:aws:bedrock-agentcore:*:*:*"
     },
     {
@@ -177,13 +160,17 @@
           ]
         }
       },
-      "Resource": ["arn:aws:ec2:*:*:instance/*"],
+      "Resource": [
+        "arn:aws:ec2:*:*:instance/*"
+      ],
       "Action": "ec2:RunInstances",
       "Effect": "Deny",
       "Sid": "DenyXXLInstances"
     },
     {
-      "Resource": ["arn:aws:ec2:*:*:*"],
+      "Resource": [
+        "arn:aws:ec2:*:*:*"
+      ],
       "Action": [
         "ec2:ModifyReservedInstances",
         "ec2:PurchaseHostReservation",
@@ -194,14 +181,22 @@
       "Sid": "DontBuyEC2ReservationsPlz"
     },
     {
-      "Resource": ["arn:aws:rds:*:*:*"],
-      "Action": ["rds:PurchaseReservedDBInstancesOffering"],
+      "Resource": [
+        "arn:aws:rds:*:*:*"
+      ],
+      "Action": [
+        "rds:PurchaseReservedDBInstancesOffering"
+      ],
       "Effect": "Deny",
       "Sid": "DontBuyRDSReservationsPlz"
     },
     {
-      "Resource": ["arn:aws:dynamodb:*:*:*"],
-      "Action": ["dynamodb:PurchaseReservedCapacityOfferings"],
+      "Resource": [
+        "arn:aws:dynamodb:*:*:*"
+      ],
+      "Action": [
+        "dynamodb:PurchaseReservedCapacityOfferings"
+      ],
       "Effect": "Deny",
       "Sid": "DontBuyDynamodbReservationsPlz"
     },
@@ -209,20 +204,20 @@
       "Sid": "PassRoleToBedrock",
       "Effect": "Allow",
       "Action": [
-          "iam:PassRole",
-          "iam:CreateRole",
-          "iam:CreatePolicy",
-          "iam:AttachRolePolicy",
-          "iam:CreateServiceLinkedRole",
-          "iam:PutRolePolicy"
+        "iam:PassRole",
+        "iam:CreateRole",
+        "iam:CreatePolicy",
+        "iam:AttachRolePolicy",
+        "iam:CreateServiceLinkedRole",
+        "iam:PutRolePolicy"
       ],
       "Resource": "arn:aws:iam::*:role/*AmazonBedrock*",
       "Condition": {
-          "StringEquals": {
-              "iam:PassedToService": [
-                  "bedrock.amazonaws.com"
-              ]
-          }
+        "StringEquals": {
+          "iam:PassedToService": [
+            "bedrock.amazonaws.com"
+          ]
+        }
       }
     },
     {
@@ -232,50 +227,50 @@
       "Sid": "PassRole"
     },
     {
-        "Sid": "BedrockModelAccess",
-        "Effect": "Allow",
-        "Action": [
-            "bedrock:InvokeModel",
-            "bedrock:InvokeModelWithResponseStream",
-            "bedrock:ListFoundationModelAgreementOffers",
-            "bedrock:PutFoundationModelEntitlement",
-            "bedrock:CreateFoundationModelAgreement"
-        ],
-        "Resource": [
-            "arn:aws:bedrock:us-west-2::foundation-model/amazon.titan-embed-text-v1",
-            "arn:aws:bedrock:us-west-2::foundation-model/amazon.titan-embed-text-v2:0",
-            "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-5-haiku-20241022-v1:0",
-            "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-5-sonnet-20240620-v1:0",
-            "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0",
-            "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-7-sonnet-20250219-v1:0",
-            "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-sonnet-4-20250514-v1:0",
-            "arn:aws:bedrock:us-west-2::foundation-model/amazon.nova-*"
-        ]
+      "Sid": "BedrockModelAccess",
+      "Effect": "Allow",
+      "Action": [
+        "bedrock:InvokeModel",
+        "bedrock:InvokeModelWithResponseStream",
+        "bedrock:ListFoundationModelAgreementOffers",
+        "bedrock:PutFoundationModelEntitlement",
+        "bedrock:CreateFoundationModelAgreement"
+      ],
+      "Resource": [
+        "arn:aws:bedrock:us-west-2::foundation-model/amazon.titan-embed-text-v1",
+        "arn:aws:bedrock:us-west-2::foundation-model/amazon.titan-embed-text-v2:0",
+        "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-5-haiku-20241022-v1:0",
+        "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-5-sonnet-20240620-v1:0",
+        "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0",
+        "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-7-sonnet-20250219-v1:0",
+        "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-sonnet-4-20250514-v1:0",
+        "arn:aws:bedrock:us-west-2::foundation-model/amazon.nova-*"
+      ]
     },
     {
-        "Sid": "DenyBedrockModelAccessForOtherModels",
-        "Effect": "Deny",
-        "Action": [
-            "bedrock:InvokeModel",
-            "bedrock:InvokeModelWithResponseStream",
-            "bedrock:ListFoundationModelAgreementOffers",
-            "bedrock:PutFoundationModelEntitlement",
-            "bedrock:CreateFoundationModelAgreement"
-        ],
-        "Resource": [
-            "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-opus-20240229-v1:0",
-            "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0",
-            "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-haiku-20240307-v1:0",
-            "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-v2:1",
-            "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-v2",
-            "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-instant-v1",
-            "arn:aws:bedrock:us-west-2::foundation-model/cohere*",
-            "arn:aws:bedrock:us-west-2::foundation-model/meta*",
-            "arn:aws:bedrock:us-west-2::foundation-model/mistral*",
-            "arn:aws:bedrock:us-west-2::foundation-model/stability*",
-            "arn:aws:bedrock:us-west-2::foundation-model/amazon.titan-image-*",
-            "arn:aws:bedrock:us-west-2::foundation-model/amazon.titan-embed-image-v1"
-        ]
+      "Sid": "DenyBedrockModelAccessForOtherModels",
+      "Effect": "Deny",
+      "Action": [
+        "bedrock:InvokeModel",
+        "bedrock:InvokeModelWithResponseStream",
+        "bedrock:ListFoundationModelAgreementOffers",
+        "bedrock:PutFoundationModelEntitlement",
+        "bedrock:CreateFoundationModelAgreement"
+      ],
+      "Resource": [
+        "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-opus-20240229-v1:0",
+        "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-sonnet-20240229-v1:0",
+        "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-haiku-20240307-v1:0",
+        "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-v2:1",
+        "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-v2",
+        "arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-instant-v1",
+        "arn:aws:bedrock:us-west-2::foundation-model/cohere*",
+        "arn:aws:bedrock:us-west-2::foundation-model/meta*",
+        "arn:aws:bedrock:us-west-2::foundation-model/mistral*",
+        "arn:aws:bedrock:us-west-2::foundation-model/stability*",
+        "arn:aws:bedrock:us-west-2::foundation-model/amazon.titan-image-*",
+        "arn:aws:bedrock:us-west-2::foundation-model/amazon.titan-embed-image-v1"
+      ]
     }
   ]
 }

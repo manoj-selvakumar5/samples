@@ -307,13 +307,9 @@ arn:aws:bedrock-agentcore:*:*:workload-identity-directory/default/workload-ident
 
 **What was added:**
 
-New `BedrockAgentCoreAccess` statement with 16 AgentCore actions:
-- Runtime lifecycle: `CreateAgentRuntime`, `DeleteAgentRuntime`, `GetAgentRuntime`, `UpdateAgentRuntime`, `ListAgentRuntimes`, `ListAgentRuntimeVersions`
-- Endpoint management: `CreateAgentRuntimeEndpoint`, `DeleteAgentRuntimeEndpoint`, `GetAgentRuntimeEndpoint`, `UpdateAgentRuntimeEndpoint`, `ListAgentRuntimeEndpoints`
-- Invocation: `InvokeAgentRuntime`
-- Workload Identity: `CreateWorkloadIdentity`, `GetWorkloadIdentity`, `DeleteWorkloadIdentity`, `ListWorkloadIdentities`
-
-**Resource:** `arn:aws:bedrock-agentcore:*:*:*`
+New `BedrockAgentCoreAccess` statement:
+- Action: `bedrock-agentcore:*` (wildcard used due to IAM policy size limit of 6144 characters)
+- Resource: `arn:aws:bedrock-agentcore:*:*:*`
 
 ---
 
