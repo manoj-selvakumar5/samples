@@ -229,6 +229,55 @@ aws cloudformation delete-stack --stack-name strands-workshop --region us-east-1
 
 ## Changelog
 
+### 2026-01-03: Added Workload Identity and Cleanup Permissions for AgentCore
+
+#### Fix 1: Workload Identity Permissions
+
+**Issue:** When running `agentcore_runtime.launch()` in the AgentCore deployment tutorial, workshop participants encountered:
+
+```
+AccessDeniedException: bedrock-agentcore:CreateWorkloadIdentity on resource:
+arn:aws:bedrock-agentcore:*:*:workload-identity-directory/default/workload-identity/*
+```
+
+**Root Cause:** The `bedrock-agentcore-access` policy only included runtime lifecycle actions but was missing workload identity actions. When `CreateAgentRuntime` is called, AWS AgentCore automatically creates a workload identity for secure credential management. This requires explicit permissions not included in the original policy.
+
+**What was added:**
+
+1. **Workload Identity Actions** - Added to existing `bedrock-agentcore-access` policy:
+   - `CreateWorkloadIdentity` - Creates workload identity during `CreateAgentRuntime`
+   - `GetWorkloadIdentity` - Retrieves workload identity status
+   - `DeleteWorkloadIdentity` - Cleans up identity during `DeleteAgentRuntime`
+   - `ListWorkloadIdentities` - Lists existing workload identities
+
+2. **Service-Linked Role Permission** - New `agentcore-service-linked-role` policy:
+   - `iam:CreateServiceLinkedRole` for `AWSServiceRoleForBedrockAgentCoreRuntimeIdentity`
+   - Required on first AgentCore deployment in an account
+   - AWS uses this service-linked role to manage runtime identity federation
+
+**Why Workload Identity?**
+- Workload identities allow AgentCore to securely provide temporary credentials to your deployed agent
+- The agent can then access AWS services (like Bedrock models) without embedding long-term credentials
+- This is the recommended pattern for production agent deployments
+
+#### Fix 2: Cleanup Permissions
+
+**Issue:** The tutorial uses `agentcore destroy --force --delete-ecr-repo` for cleanup, but the required permissions were missing.
+
+**What was added:**
+
+1. **CodeBuild DeleteProject** - Added to `agentcore-codebuild-access` policy:
+   - `codebuild:DeleteProject` - Required by `agentcore destroy` to remove CodeBuild projects
+
+2. **ECR Cleanup Actions** - Added to `agentcore-ecr-access` policy:
+   - `ecr:DeleteRepository` - Required for `--delete-ecr-repo` flag
+   - `ecr:BatchDeleteImage` - Required to delete images before repository deletion
+
+**Reference:**
+- https://docs.aws.amazon.com/aws-managed-policy/latest/reference/BedrockAgentCoreFullAccess.html
+
+---
+
 ### 2026-01-02: Added Amazon Bedrock AgentCore Support
 
 **File Created:** `strands_workshop_studio.yaml`

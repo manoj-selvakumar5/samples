@@ -397,6 +397,11 @@ Resources:
                   - bedrock-agentcore:UpdateAgentRuntimeEndpoint
                   # Data plane - invocation
                   - bedrock-agentcore:InvokeAgentRuntime
+                  # Workload identity management (required for CreateAgentRuntime)
+                  - bedrock-agentcore:CreateWorkloadIdentity
+                  - bedrock-agentcore:GetWorkloadIdentity
+                  - bedrock-agentcore:DeleteWorkloadIdentity
+                  - bedrock-agentcore:ListWorkloadIdentities
                 Resource: "arn:aws:bedrock-agentcore:*:*:*"
         - PolicyName: agentcore-codebuild-access
           PolicyDocument:
@@ -410,6 +415,7 @@ Resources:
                   - codebuild:ListBuildsForProject
                   - codebuild:CreateProject
                   - codebuild:UpdateProject
+                  - codebuild:DeleteProject
                   - codebuild:BatchGetProjects
                 Resource:
                   - "arn:aws:codebuild:*:*:project/bedrock-agentcore-*"
@@ -465,6 +471,9 @@ Resources:
                   - ecr:BatchGetImage
                   - ecr:ListImages
                   - ecr:TagResource
+                  # Cleanup permissions (for agentcore destroy --delete-ecr-repo)
+                  - ecr:DeleteRepository
+                  - ecr:BatchDeleteImage
                 Resource: "arn:aws:ecr:*:*:repository/bedrock-agentcore-*"
               - Sid: ECRAuthorizationAccess
                 Effect: Allow
@@ -508,6 +517,19 @@ Resources:
                   - xray:GetSamplingRules
                   - xray:GetSamplingTargets
                 Resource: "*"
+        # Service-linked role for runtime identity management
+        # Reference: https://docs.aws.amazon.com/aws-managed-policy/latest/reference/BedrockAgentCoreFullAccess.html
+        - PolicyName: agentcore-service-linked-role
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Sid: CreateBedrockAgentCoreRuntimeIdentityServiceLinkedRole
+                Effect: Allow
+                Action: iam:CreateServiceLinkedRole
+                Resource: "arn:aws:iam::*:role/aws-service-role/runtime-identity.bedrock-agentcore.amazonaws.com/AWSServiceRoleForBedrockAgentCoreRuntimeIdentity"
+                Condition:
+                  StringEquals:
+                    iam:AWSServiceName: "runtime-identity.bedrock-agentcore.amazonaws.com"
 
 
   DefaultVpcLambda:
