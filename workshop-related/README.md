@@ -134,7 +134,9 @@ Based on [AWS AgentCore IAM Documentation](https://docs.aws.amazon.com/bedrock-a
 | `agentcore-ecr-access` | CreateRepository, PutImage, GetAuthorizationToken | `repository/bedrock-agentcore-*` |
 | `agentcore-logs-access` | GetLogEvents, DescribeLogGroups | `/aws/bedrock-agentcore/*` |
 | `agentcore-s3-access` | GetObject, PutObject, CreateBucket | `bedrock-agentcore-*` |
-| `agentcore-xray-access` | PutTraceSegments, GetSamplingRules | `*` |
+| `agentcore-xray-access` | PutTraceSegments, GetSamplingRules, UpdateTraceSegmentDestination | `*` |
+| `agentcore-observability-logs` | PutDeliverySource, CreateDelivery, etc. | `*` |
+| `agentcore-application-signals` | StartDiscovery | `*` |
 
 #### Understanding CodeBuild Resource ARN Patterns
 
@@ -311,6 +313,22 @@ New `BedrockAgentCoreAccess` statement:
 - Action: `bedrock-agentcore:*` (wildcard used due to IAM policy size limit of 6144 characters)
 - Resource: `arn:aws:bedrock-agentcore:*:*:*`
 
+#### Fix 5: Vended Log Delivery and Application Signals Permissions
+
+**Issue:** After deploying an agent, observability setup failed with:
+- `AccessDeniedException` for `bedrock-agentcore:AllowVendedLogDeliveryForResource`
+- `AccessDeniedException` for `application-signals:StartDiscovery`
+
+**Root Cause:** The `bedrock-agentcore-access` policy listed specific runtime actions but was missing the `AllowVendedLogDeliveryForResource` action. Additionally, Application Signals (for Transaction Search) is a separate AWS service requiring its own permissions.
+
+**What was added:**
+
+1. **Vended Log Delivery** - Added to `bedrock-agentcore-access` policy:
+   - `bedrock-agentcore:AllowVendedLogDeliveryForResource` - Required for AgentCore to deliver logs and traces to CloudWatch
+
+2. **Application Signals** - New `agentcore-application-signals` policy:
+   - `application-signals:StartDiscovery` - Required for Transaction Search observability feature
+
 ---
 
 ### 2026-01-02: Added Amazon Bedrock AgentCore Support
@@ -323,26 +341,31 @@ New `BedrockAgentCoreAccess` statement:
 
 1. **Trust Policy Update** - Added `bedrock-agentcore.amazonaws.com` as a trusted service principal with `sts:AssumeRole` and `sts:TagSession` actions. This allows AgentCore to assume the SageMaker execution role when running deployed agents.
 
-2. **7 New Inline Policies** - Based on [AWS AgentCore IAM Documentation](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-permissions.html):
+2. **10 New Inline Policies** - Based on [AWS AgentCore IAM Documentation](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-permissions.html):
 
    | Policy | Why Needed |
    |--------|------------|
-   | `bedrock-agentcore-access` | 12 specific runtime actions (not wildcard) for deploying and invoking agents |
+   | `bedrock-agentcore-access` | Runtime lifecycle actions + workload identity + vended log delivery |
    | `agentcore-codebuild-access` | Starter toolkit uses CodeBuild to build Docker images for agent deployment |
    | `agentcore-iam-access` | Toolkit creates execution roles for deployed agents (scoped to `*BedrockAgentCore*` roles) |
    | `agentcore-ecr-access` | Push agent container images to ECR repositories (scoped to `bedrock-agentcore-*`) |
    | `agentcore-logs-access` | View runtime logs in CloudWatch for debugging deployed agents |
    | `agentcore-s3-access` | Toolkit uses S3 buckets for agent artifacts (scoped to `bedrock-agentcore-*`) |
-   | `agentcore-xray-access` | Enable distributed tracing for observability (used in tutorial notebook) |
+   | `agentcore-xray-access` | Enable distributed tracing and Transaction Search for observability |
+   | `agentcore-service-linked-role` | Create service-linked role for runtime identity management |
+   | `agentcore-observability-logs` | CloudWatch Logs delivery for observability pipelines |
+   | `agentcore-application-signals` | Application Signals for Transaction Search feature |
 
-   **AgentCore Runtime Actions (12 total):**
+   **AgentCore Runtime Actions (17 total):**
    - Control plane: `CreateAgentRuntime`, `CreateAgentRuntimeEndpoint`, `GetAgentRuntime`, `GetAgentRuntimeEndpoint`, `DeleteAgentRuntime`, `DeleteAgentRuntimeEndpoint`, `ListAgentRuntimes`, `ListAgentRuntimeEndpoints`, `ListAgentRuntimeVersions`, `UpdateAgentRuntime`, `UpdateAgentRuntimeEndpoint`
    - Data plane: `InvokeAgentRuntime`
+   - Workload identity: `CreateWorkloadIdentity`, `GetWorkloadIdentity`, `DeleteWorkloadIdentity`, `ListWorkloadIdentities`
+   - Observability: `AllowVendedLogDeliveryForResource`
 
 **Security Considerations:**
 - All policies follow **least privilege** principles
 - Resources are scoped to `bedrock-agentcore-*` prefixes where possible
-- AgentCore policy uses 12 specific actions instead of `bedrock-agentcore:*` wildcard
+- AgentCore policy uses 17 specific actions instead of `bedrock-agentcore:*` wildcard
 - Avoided using the broad `BedrockAgentCoreFullAccess` managed policy which includes unnecessary Secrets Manager, KMS, and Lambda permissions
 - Suitable for workshops with 1000s of participants
 

@@ -402,6 +402,8 @@ Resources:
                   - bedrock-agentcore:GetWorkloadIdentity
                   - bedrock-agentcore:DeleteWorkloadIdentity
                   - bedrock-agentcore:ListWorkloadIdentities
+                  # Observability - vended log delivery (for CloudWatch logs/traces)
+                  - bedrock-agentcore:AllowVendedLogDeliveryForResource
                 Resource: "arn:aws:bedrock-agentcore:*:*:*"
         - PolicyName: agentcore-codebuild-access
           PolicyDocument:
@@ -556,6 +558,16 @@ Resources:
                   - logs:DescribeDeliveries
                   - logs:DescribeDeliverySources
                   - logs:DescribeDeliveryDestinations
+                Resource: "*"
+        # Application Signals for Transaction Search observability
+        - PolicyName: agentcore-application-signals
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Sid: ApplicationSignalsAccess
+                Effect: Allow
+                Action:
+                  - application-signals:StartDiscovery
                 Resource: "*"
 
 
