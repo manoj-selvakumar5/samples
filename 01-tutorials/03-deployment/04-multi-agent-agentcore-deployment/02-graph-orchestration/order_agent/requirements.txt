@@ -1,0 +1,6 @@
+strands-agents[a2a,otel]
+strands-agents-tools
+fastapi
+uvicorn
+boto3
+mcp
