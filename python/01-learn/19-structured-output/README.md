@@ -15,7 +15,7 @@ Under the hood, the SDK registers your model as a dynamic tool, the LLM calls it
 | **Strands Features**   | Structured Output, Pydantic Validation, Tool Integration             |
 | **Agent Pattern**      | Single agent with structured output                                  |
 | **Tools**              | `calculator` (defined in the notebook)                               |
-| **Model**              | Claude Sonnet 4.5 on Amazon Bedrock                                  |
+| **Model**              | Claude Sonnet 5 on Amazon Bedrock                                  |
 
 ## How It Works
 
@@ -31,7 +31,7 @@ Under the hood, the SDK registers your model as a dynamic tool, the LLM calls it
 
 - Python 3.10 or later
 - AWS account with [Amazon Bedrock](https://aws.amazon.com/bedrock/) model access configured
-- [Model access](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access-modify.html) enabled for Claude Sonnet 4.5
+- [Model access](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access-modify.html) enabled for Claude Sonnet 5
 - Basic understanding of Python and [Pydantic](https://docs.pydantic.dev/)
 - Familiarity with Strands Agents basics [(see Tutorial 01)](../01-first-agent/)
 

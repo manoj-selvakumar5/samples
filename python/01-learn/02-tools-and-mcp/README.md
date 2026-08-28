@@ -9,7 +9,7 @@ This tutorial covers the two ways to give a Strands agent tools: writing your ow
 | **Strands Features**   | `@tool` decorator, `TOOL_SPEC`, `MCPClient`              |
 | **Agent Pattern**      | Single agent                                             |
 | **Tools**              | Custom tools (`@tool`, `TOOL_SPEC`), MCP tools |
-| **Model**              | Claude Sonnet 4.5 on Amazon Bedrock (`us.anthropic.claude-sonnet-4-5-20250929-v1:0`) |
+| **Model**              | Claude Sonnet 5 on Amazon Bedrock (`us.anthropic.claude-sonnet-5`) |
 
 ## Key Concepts
 
@@ -21,7 +21,7 @@ This tutorial covers the two ways to give a Strands agent tools: writing your ow
 
 - Python 3.10 or higher
 - An AWS account with credentials configured
-- Access to Anthropic Claude Sonnet 4.5 (`us.anthropic.claude-sonnet-4-5-20250929-v1:0`) on Amazon Bedrock (see [model access](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access.html))
+- Access to Anthropic Claude Sonnet 5 (`us.anthropic.claude-sonnet-5`) on Amazon Bedrock (see [model access](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access.html))
 - Basic understanding of Python
 
 ## Tutorial Structure

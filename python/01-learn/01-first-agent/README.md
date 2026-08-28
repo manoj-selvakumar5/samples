@@ -11,7 +11,7 @@ This tutorial walks you through building your first Strands agent. You start wit
 | **Strands Features**   | `Agent`, `@tool` decorator, `BedrockModel`               |
 | **Agent Pattern**      | Single agent                                             |
 | **Tools**              | Custom tools via the `@tool` decorator                  |
-| **Model**              | Claude Sonnet 4.5 on Amazon Bedrock (`us.anthropic.claude-sonnet-4-5-20250929-v1:0`) |
+| **Model**              | Claude Sonnet 5 on Amazon Bedrock (`us.anthropic.claude-sonnet-5`) |
 
 ## Key Concepts
 
@@ -23,7 +23,7 @@ This tutorial walks you through building your first Strands agent. You start wit
 
 - Python 3.10 or higher
 - An AWS account with credentials configured
-- Access to Anthropic Claude Sonnet 4.5 (`us.anthropic.claude-sonnet-4-5-20250929-v1:0`) on Amazon Bedrock (see [model access](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access.html))
+- Access to Anthropic Claude Sonnet 5 (`us.anthropic.claude-sonnet-5`) on Amazon Bedrock (see [model access](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access.html))
 - Basic understanding of Python
 
 ## Tutorial Structure
