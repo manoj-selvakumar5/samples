@@ -45,7 +45,6 @@ def main() -> None:
 
     # `result` is an AgentResult, not a string. Printing it renders the final
     # text, but the object also carries why the loop stopped and what it cost.
-    # The first \n closes the model's streamed line, which does not end in one.
     print("\n\n--- AgentResult ---")
     print(f"stop_reason : {result.stop_reason}")
     print(f"text        : {result}")
