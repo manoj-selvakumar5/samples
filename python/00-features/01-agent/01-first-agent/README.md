@@ -27,26 +27,6 @@ pip install -r requirements.txt
 python main.py
 ```
 
-## Output
-
-```
-Prompt: How many words are in this sentence: 'the quick brown fox jumps over the lazy dog'?
-
-
-Tool #1: word_count
-  [tool] word_count called with 43 characters
-The sentence *"the quick brown fox jumps over the lazy dog"* contains **9 words**.
-
---- AgentResult ---
-stop_reason : end_turn
-text        : The sentence *"the quick brown fox jumps over the lazy dog"* contains **9 words**.
-
-role        : assistant
-blocks      : 1
-tokens      : 1348 in, 88 out
-tool calls  : word_count x1
-```
-
 ## Note the following
 
 - **`Agent` returns an `AgentResult`, not a string.** Printing it renders the final text, which is

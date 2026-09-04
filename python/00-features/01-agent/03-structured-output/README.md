@@ -29,22 +29,6 @@ pip install -r requirements.txt
 python main.py
 ```
 
-## Output
-
-```
---- Input: one paragraph of free text ---
-  We pushed the release at 09:12. By 09:20 error rates had tripled, so we paged the
-  on-call. Rolled back at 09:41 and things were back to normal by 09:50.
-
---- Result: agent(REPORT).structured_output ---
-  09:12  Release pushed
-  09:20  Error rates tripled, on-call engineer paged
-  09:41  Rollback performed
-  09:50  Service restored to normal
-
-resolved: True
-```
-
 ## Note the following
 
 - **Both halves are printed, so the terminal explains itself.** The paragraph that went in, then
@@ -80,11 +64,9 @@ resolved: True
   agent(third).structured_output                                   # Incident again
   ```
 
-- **The wording varies, the shape does not.** Across repeated runs this report consistently produced
-  four events at the same four timestamps; only the phrasing of `detail` moved. The last event
-  came back as `Service back to normal`, `Service returned to normal`, and `Service restored to
-  normal` on three runs of the same script. Expect your run to match the structure above rather
-  than the exact strings.
+- **The wording varies, the shape does not.** Repeated runs of the same report produce the same
+  event count and the same timestamps, and only the phrasing of the free-text fields moves. Rely on
+  the schema, not on the exact strings.
 
 ## Variations
 

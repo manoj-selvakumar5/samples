@@ -11,13 +11,13 @@ import typing
 
 from pydantic import BaseModel
 from strands import Agent, tool
+from strands.agent import AgentResult
 from strands.types.event_loop import StopReason
 from strands.types.exceptions import MaxTokensReachedException
 
 ALL_STOP_REASONS = sorted(typing.get_args(StopReason))
 
 # Values this script does not reach, and the mechanism that produces each one.
-# The README says which leaf will own them.
 NOT_DEMONSTRATED = {
     "cancelled": "agent.cancel()",
     "checkpoint": "checkpointing=True",
@@ -56,26 +56,29 @@ QUIET = (
 )
 
 
-def show(label: str, result, expected: str) -> None:
+def show(label: str, result: AgentResult, expected: str) -> None:
+    """Print how one run ended, and whether that matched the expected value."""
     got = result.stop_reason
     mark = "OK" if got == expected else f"UNEXPECTED (wanted {expected})"
     print(f"  {label:22s} -> {got:20s} {mark}")
 
 
 def main() -> None:
-    seen = {}
+    # Maps each stop reason this script reached to what produced it. The
+    # coverage report at the end reads it against the full union.
+    seen: dict[str, str] = {}
 
     # end_turn: the model finished on its own.
     agent = Agent(system_prompt=QUIET, callback_handler=None)
-    r = agent("Name the capital of Japan.")
-    show("plain question", r, "end_turn")
+    result = agent("Name the capital of Japan.")
+    show("plain question", result, "end_turn")
     seen["end_turn"] = "model finished on its own"
 
     # tool_use: structured output is a forced tool call, so a successful
     # structured response reports tool_use rather than end_turn.
     agent = Agent(system_prompt=QUIET, structured_output_model=Answer, callback_handler=None)
-    r = agent("Name the capital of Japan.")
-    show("structured output", r, "tool_use")
+    result = agent("Name the capital of Japan.")
+    show("structured output", result, "tool_use")
     seen["tool_use"] = "loop ended on a tool call, including structured output"
 
     # max_tokens: the provider's own output ceiling. This one does NOT come
@@ -84,8 +87,8 @@ def main() -> None:
     agent = Agent(system_prompt=QUIET, callback_handler=None)
     agent.model.update_config(max_tokens=16)
     try:
-        r = agent("Explain how a jet engine works.")
-        show("model max_tokens=16", r, "max_tokens")
+        result = agent("Explain how a jet engine works.")
+        show("model max_tokens=16", result, "max_tokens")
     except MaxTokensReachedException:
         print(f"  {'model max_tokens=16':22s} -> raised MaxTokensReachedException")
     seen["max_tokens"] = "provider output ceiling, raised as an exception"
@@ -93,8 +96,8 @@ def main() -> None:
     # stop_sequence: the model emitted a configured stop string.
     agent = Agent(system_prompt=QUIET, callback_handler=None)
     agent.model.update_config(stop_sequences=["4"])
-    r = agent("Count from 1 to 9, separated by spaces.")
-    show("stop_sequences=['4']", r, "stop_sequence")
+    result = agent("Count from 1 to 9, separated by spaces.")
+    show("stop_sequences=['4']", result, "stop_sequence")
     seen["stop_sequence"] = "model emitted a configured stop string"
 
     # The three limit_* values, all from the `limits` argument.
@@ -104,8 +107,8 @@ def main() -> None:
         ("limits output_tokens=64", {"output_tokens": 64}, "limit_output_tokens"),
     ]:
         agent = Agent(system_prompt=QUIET, tools=[next_number], callback_handler=None)
-        r = agent(COUNT_PROMPT, limits=limits)
-        show(label, r, expected)
+        result = agent(COUNT_PROMPT, limits=limits)
+        show(label, result, expected)
         seen[expected] = f"the {list(limits)[0]} cap in `limits`"
 
     print(f"\n--- Coverage: {len(seen)} of {len(ALL_STOP_REASONS)} ---")

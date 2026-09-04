@@ -27,35 +27,6 @@ pip install -r requirements.txt
 python main.py
 ```
 
-## Output
-
-```
-  plain question         -> end_turn             OK
-  structured output      -> tool_use             OK
-  model max_tokens=16    -> raised MaxTokensReachedException
-  stop_sequences=['4']   -> stop_sequence        OK
-  limits turns=3         -> limit_turns          OK
-  limits total_tokens=2000 -> limit_total_tokens   OK
-  limits output_tokens=64 -> limit_output_tokens  OK
-
---- Coverage: 7 of 12 ---
-  [not here]     cancelled              agent.cancel()
-  [not here]     checkpoint             checkpointing=True
-  [not here]     content_filtered       provider-side content filtering
-  [demonstrated] end_turn               model finished on its own
-  [not here]     guardrail_intervened   Amazon Bedrock Guardrails
-  [not here]     interrupt              an intervention raising an interrupt
-  [demonstrated] limit_output_tokens    the output_tokens cap in `limits`
-  [demonstrated] limit_total_tokens     the total_tokens cap in `limits`
-  [demonstrated] limit_turns            the turns cap in `limits`
-  [demonstrated] max_tokens             provider output ceiling, raised as an exception
-  [demonstrated] stop_sequence          model emitted a configured stop string
-  [demonstrated] tool_use               loop ended on a tool call, including structured output
-```
-
-The script derives its own coverage report from `typing.get_args(StopReason)`, so if the SDK adds a
-thirteenth value the run reports it as uncovered rather than silently ignoring it.
-
 ## All twelve values
 
 | Value | Meaning | Where it comes from |
@@ -69,12 +40,13 @@ thirteenth value the run reports it as uncovered rather than silently ignoring i
 | `limit_output_tokens` | The `output_tokens` cap tripped | [`01-execution-limits`](../01-execution-limits/) |
 | `cancelled` | `agent.cancel()` was called | a later `09-limits/` leaf |
 | `checkpoint` | The run paused at a checkpoint | a later `10-sessions/` leaf |
-| `interrupt` | An intervention raised an interrupt | a later `07-interventions/` leaf |
+| `interrupt` | An intervention raised an interrupt | [`07-interventions/03-human-in-the-loop`](../../07-interventions/03-human-in-the-loop/) |
 | `guardrail_intervened` | Amazon Bedrock Guardrails blocked the content | a later `09-limits/` leaf |
 | `content_filtered` | The provider filtered the content | provider-side |
 
-Five of these are not demonstrated here, because the areas that produce them are not built yet.
-The script says so at runtime rather than quietly covering seven and implying twelve.
+Five of these are not reached by this script, either because the mechanism lives in another leaf
+or because the area that produces it is not built yet. The script says so at runtime rather than
+quietly covering seven and implying twelve.
 
 ## Note the following
 
@@ -89,7 +61,7 @@ The script says so at runtime rather than quietly covering seven and implying tw
   invocation that hit a cap returns an ordinary `AgentResult`, so ignoring the field means treating
   a truncated run as a finished one.
 - **`stop_sequence` fires on the string appearing in output**, so the sequence is consumed and the
-  visible answer stops just before it. In the run above, `stop_sequences=["4"]` yields `1 2 3`.
+  visible answer stops just before it. Counting to nine under `stop_sequences=["4"]` stops at three.
 
 ## Variations
 
@@ -104,5 +76,7 @@ The script says so at runtime rather than quietly covering seven and implying tw
 
 - [`09-limits/01-execution-limits`](../01-execution-limits/) for the three `limit_*` values.
 - [`01-agent/03-structured-output`](../../01-agent/03-structured-output/) for why `tool_use` shows up on success.
+- [`07-interventions/03-human-in-the-loop`](../../07-interventions/03-human-in-the-loop/) for `interrupt`, the
+  one value in the table that this script does not reach but another leaf does.
 
 Verified against strands-agents 1.54.0 on 2026-09-03

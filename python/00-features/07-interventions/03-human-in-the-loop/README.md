@@ -34,114 +34,6 @@ python main.py
 
 Approve with `y`, reject with `n`.
 
-## Output
-
-Approving the transfer:
-
-```
-Prompt: Check the balance of account ACC-1 and then transfer 500 to account ACC-2.
-
-I'll start by checking the balance of ACC-1 first before proceeding with the transfer.
-Tool #1: check_balance
-  [tool] check_balance('ACC-1') ran
-ACC-1 has a balance of 8,400.00 USD, which is sufficient for the transfer. Let me now transfer 500 USD to ACC-2.
-Tool #2: transfer_funds
-
-  [paused] stop_reason=interrupt, awaiting 1
-  [interrupt] Approve "transfer_funds"?
-  Input: {"account": "ACC-1", "amount": 500, "destination": "ACC-2"}
-  approve? (y/n) y
-  [tool] transfer_funds('ACC-1', 500.0, 'ACC-2') ran
-ACC-1 had a balance of 8,400.00 USD, and the transfer of 500.00 USD to ACC-2 has been completed successfully, leaving ACC-1 with an expected balance of 7,900.00 USD.
-
---- Result ---
-stop_reason : end_turn
-text        : ACC-1 had a balance of 8,400.00 USD, and the transfer of 500.00 USD to ACC-2 has been completed successfully, leaving ACC-1 with an expected balance of 7,900.00 USD.
-
-
---- agent.messages ---
-[0] user
-      text       : Check the balance of account ACC-1 and then transfer 500 to account ACC-2.
-[1] assistant
-      text       : I'll start by checking the balance of ACC-1 first before proceeding with the
-                   transfer.
-      toolUse    : check_balance {"account": "ACC-1"}
-[2] user
-      toolResult : success
-                   ACC-1 balance is 8,400.00 USD
-[3] assistant
-      text       : ACC-1 has a balance of 8,400.00 USD, which is sufficient for the transfer.
-                   Let me now transfer 500 USD to ACC-2.
-      toolUse    : transfer_funds {"account": "ACC-1", "amount": 500, "destination": "ACC-2"}
-[4] user
-      toolResult : success
-                   transferred 500.0 from ACC-1 to ACC-2
-[5] assistant
-      text       : ACC-1 had a balance of 8,400.00 USD, and the transfer of 500.00 USD to ACC-2
-                   has been completed successfully, leaving ACC-1 with an expected balance of
-                   7,900.00 USD.
-```
-
-Rejecting it:
-
-```
-Prompt: Check the balance of account ACC-1 and then transfer 500 to account ACC-2.
-
-I'll start by checking the balance of ACC-1 first before proceeding with the transfer.
-Tool #1: check_balance
-  [tool] check_balance('ACC-1') ran
-ACC-1 has a balance of 8,400.00 USD, which is sufficient for the transfer. Let me now proceed with transferring 500 USD to ACC-2.
-Tool #2: transfer_funds
-
-  [paused] stop_reason=interrupt, awaiting 1
-  [interrupt] Approve "transfer_funds"?
-  Input: {"account": "ACC-1", "amount": 500, "destination": "ACC-2"}
-  approve? (y/n) n
-The transfer of 500 USD from ACC-1 to ACC-2 could not be completed as it failed the confirmation step. Please verify your authorization and try again, or contact support if the issue persists.
-
---- Result ---
-stop_reason : end_turn
-text        : The transfer of 500 USD from ACC-1 to ACC-2 could not be completed as it failed the confirmation step. Please verify your authorization and try again, or contact support if the issue persists.
-
-
---- agent.messages ---
-[0] user
-      text       : Check the balance of account ACC-1 and then transfer 500 to account ACC-2.
-[1] assistant
-      text       : I'll start by checking the balance of ACC-1 first before proceeding with the
-                   transfer.
-      toolUse    : check_balance {"account": "ACC-1"}
-[2] user
-      toolResult : success
-                   ACC-1 balance is 8,400.00 USD
-[3] assistant
-      text       : ACC-1 has a balance of 8,400.00 USD, which is sufficient for the transfer.
-                   Let me now proceed with transferring 500 USD to ACC-2.
-      toolUse    : transfer_funds {"account": "ACC-1", "amount": 500, "destination": "ACC-2"}
-[4] user
-      toolResult : error
-                   CONFIRMATION_FAILED: Approve "transfer_funds"?
-                     Input: {"account": "ACC-1", "amount": 500, "destination": "ACC-2"}
-[5] assistant
-      text       : The transfer of 500 USD from ACC-1 to ACC-2 could not be completed as it
-                   failed the confirmation step. Please verify your authorization and try again,
-                   or contact support if the issue persists.
-```
-
-In both runs `check_balance` executes without stopping anything, because it is on the allow-list.
-Only `transfer_funds` raises an interrupt.
-
-The `[paused]` line is the point of this leaf. The first `agent(prompt)` call **returns** there, with
-`stop_reason` of `interrupt` rather than `end_turn`. Nothing is blocked and nothing is waiting on a
-thread: the tool has not run, the run is suspended, and your code holds the decision.
-
-The `agent.messages` section shows how the decision then reaches the model. Approving produces a
-normal `success` tool result; rejecting produces an `error` carrying `CONFIRMATION_FAILED:` followed
-by the approval prompt itself. Note that the prompt is phrased as a question, so the model is told
-`CONFIRMATION_FAILED: Approve "transfer_funds"?` and tends to hedge about a failed confirmation step
-rather than state that a person declined. `HumanInTheLoop` builds that text internally, so unlike a
-hand-written `Confirm` in [`01-intervention-basics`](../01-intervention-basics/) you cannot reword it.
-
 ## Resuming
 
 The pause and the resume are the whole API:
@@ -184,6 +76,11 @@ for a prompt.
   abstract is meaningless; approving it for 500 USD to ACC-2 is a real decision.
 - **Rejection is not an error.** The loop continues and the model is told the call failed
   confirmation, so it reports back rather than crashing. `stop_reason` is still `end_turn`.
+- **You cannot reword what the model is told.** On a rejection the tool result is
+  `CONFIRMATION_FAILED:` followed by the approval prompt, which `HumanInTheLoop` builds internally
+  from the tool name and arguments. Because that text reads as a question, the model tends to hedge
+  about a failed confirmation step rather than say a person declined. A hand-written `Confirm` in
+  [`01-intervention-basics`](../01-intervention-basics/) lets you phrase it; this handler does not.
 - **One per agent.** `name` is a fixed class attribute on `HumanInTheLoop`, and handler names must
   be unique, so a second instance cannot be registered. Layering two approval policies means
   subclassing to rename.

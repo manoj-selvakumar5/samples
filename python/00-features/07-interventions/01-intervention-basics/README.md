@@ -33,63 +33,6 @@ python main.py
 The script asks for approval on stdin before `delete_customer` runs. Approve with `y`, reject with
 anything else.
 
-## Output
-
-```
-Prompt: Look up the customer Dana Reyes, then delete their record.
-
-I'll start by looking up Dana Reyes's record right away!
-Tool #1: lookup_customer
-  [intervention] allow lookup_customer
-  [tool] lookup_customer('Dana Reyes') ran
-  [intervention] TRANSFORM lookup_customer result, redacting email
-I found Dana Reyes's record. Now I'll go ahead and delete it.
-Tool #2: delete_customer
-  [intervention] CONFIRM run delete_customer? (y/n) n
-The deletion of Dana Reyes's record was declined by a human reviewer and could not be completed. Please reach out to your team for further guidance on this request.
-
---- Result ---
-stop_reason : end_turn
-text        : The deletion of Dana Reyes's record was declined by a human reviewer and could not be completed. Please reach out to your team for further guidance on this request.
-
-
---- agent.messages ---
-[0] user
-      text       : Look up the customer Dana Reyes, then delete their record.
-[1] assistant
-      text       : I'll start by looking up Dana Reyes's record right away!
-      toolUse    : lookup_customer {"name": "Dana Reyes"}
-[2] user
-      toolResult : success
-                   name=Dana Reyes plan=enterprise email=[redacted]
-[3] assistant
-      text       : I found Dana Reyes's record. Now I'll go ahead and delete it.
-      toolUse    : delete_customer {"name": "Dana Reyes"}
-[4] user
-      toolResult : error
-                   CONFIRMATION_FAILED: A human reviewer declined this deletion. Do not retry
-                   it.
-[5] assistant
-      text       : The deletion of Dana Reyes's record was declined by a human reviewer and
-                   could not be completed. Please reach out to your team for further guidance on
-                   this request.
-```
-
-`[tool] delete_customer(...) ran` never appears, because the rejected confirmation cancelled the
-call before the tool function was entered. Answer `y` instead and that line appears, followed by
-the model reporting the record as deleted.
-
-The `agent.messages` section is the whole conversation as the model saw it, one line per content
-block. Two lines carry the point of this leaf. The `lookup_customer` result reads
-`email=[redacted]`, so the transform rewrote the stored message rather than filtering the final
-answer. The `delete_customer` result is an `error` block carrying `CONFIRMATION_FAILED: ...`,
-which is the entire basis for the model's closing sentence.
-
-`Message` is a plain `TypedDict`, so printing history is yours to write. The docs show
-`print(agent.messages)` and `json.dumps(agent.messages, indent=4)`; both are faithful but bury
-those two lines in per-message `tracking_id` and `metadata`. Walking the content blocks also
-sidesteps the `TypeError` that `json.dumps` raises on histories holding binary blocks.
-
 ## The five actions
 
 | Action | Effect | Valid on |
@@ -132,12 +75,16 @@ sidesteps the `TypeError` that `json.dumps` raises on histories holding binary b
   case-insensitive and trimmed, and rejects everything else. An empty line is a rejection, so the
   gate fails closed.
 - **A rejection is not an exception.** The tool is cancelled, the loop continues, and the model is
-  told the call was not approved, so it can explain itself and finish its turn normally. The run
-  above ends with `stop_reason: end_turn`, not an error.
+  told the call was not approved, so it can explain itself and finish its turn normally.
+  `stop_reason` is `end_turn`, not an error.
 - **`Transform` mutates the event in place** and returns nothing. Rewriting `event.result` in
   `after_tool_call` happens before the result is appended to the conversation, which is why the
   email is absent from `agent.messages` entirely rather than merely hidden from the final answer.
 - **Only override the hooks you need.** Unoverridden hooks are not called at all.
+- **Printing the conversation is yours to write.** `Message` is a plain `TypedDict`, so
+  `print(agent.messages)` and `json.dumps(agent.messages, indent=4)` are both faithful but bury the
+  content blocks in per-message `tracking_id` and `metadata`. Walking the blocks yourself also
+  sidesteps the `TypeError` that `json.dumps` raises on a history holding binary blocks.
 
 ## Variations
 
