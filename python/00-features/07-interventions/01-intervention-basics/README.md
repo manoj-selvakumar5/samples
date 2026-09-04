@@ -56,17 +56,17 @@ email in conversation history : False
 `[tool] delete_customer(...) ran` never appears, because the handler blocked the call before the
 tool function was entered.
 
-## The four actions
+## The five actions
 
 | Action | Effect | Valid on |
 |--------|--------|----------|
 | `Proceed()` | Allow the step unchanged | every hook |
 | `Deny(reason=...)` | Block the step. The reason is handed to the model as the cancellation message | `before_invocation`, `before_model_call`, `before_tool_call` |
 | `Guide(feedback=...)` | Let the step run, but inject feedback to steer the model | `before_invocation`, `before_model_call`, `before_tool_call`, `after_model_call` |
+| `Confirm(prompt=...)` | Request human approval before the step runs | `before_tool_call` |
 | `Transform(apply=fn)` | Run `fn(event)` to mutate the event in place | every hook |
 
-`Confirm(prompt=...)` is a fifth action, valid only on `before_tool_call`. It requests human
-approval, which is what [`03-human-in-the-loop`](../03-human-in-the-loop/) is built on.
+`Confirm` is what [`03-human-in-the-loop`](../03-human-in-the-loop/) is built on.
 
 ## Note the following
 

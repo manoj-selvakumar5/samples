@@ -1,7 +1,8 @@
 """Gate and rewrite what an agent does, using an intervention handler.
 
-An intervention handler sits on the agent loop and returns an action at each
-step it overrides: Proceed, Deny, Guide, or Transform.
+An intervention handler sits on the agent loop and returns a typed action at
+each step it overrides. This script uses three of them: Proceed, Deny, and
+Transform. The README lists the full set and where each one is valid.
 
 Run:
     python main.py
@@ -45,6 +46,8 @@ def delete_customer(name: str) -> str:
     return f"deleted {name}"
 
 
+# The callable handed to `Transform(apply=...)` below. It receives the event and
+# mutates it in place; the return value is not used.
 def redact_emails(event: AfterToolCallEvent) -> None:
     """Rewrite the tool result in place, masking any email address."""
     for block in event.result.get("content", []):
@@ -55,11 +58,11 @@ def redact_emails(event: AfterToolCallEvent) -> None:
 class Governance(InterventionHandler):
     """Blocks destructive tools and redacts PII from tool results.
 
-    Lifecycle methods must be overridden at CLASS level. The framework inspects
-    the class to decide which hooks to call, so assigning a function onto an
-    instance is silently ignored.
+    Override only the lifecycle methods you need. The ones you leave alone are
+    not called.
     """
 
+    # Required on every handler, and unique across the handlers on one agent.
     name = "governance"
 
     DESTRUCTIVE = {"delete_customer"}
@@ -68,19 +71,27 @@ class Governance(InterventionHandler):
         tool_name = event.tool_use["name"]
         if tool_name in self.DESTRUCTIVE:
             print(f"  [intervention] DENY {tool_name}")
+            # Deny is not an exception. The tool never runs, the loop continues,
+            # and the model receives this reason as a failed tool result, so
+            # write it as an instruction rather than as a log line.
             return Deny(reason="Deleting customer records requires a change ticket.")
         print(f"  [intervention] allow {tool_name}")
+        # Proceed allows the step unchanged.
         return Proceed()
 
     def after_tool_call(self, event: AfterToolCallEvent, **kwargs) -> Proceed | Transform:
         rendered = str(event.result)
         if EMAIL.search(rendered):
             print(f"  [intervention] TRANSFORM {event.tool_use['name']} result, redacting email")
+            # Strands calls redact_emails(event) before the result is appended
+            # to the conversation, so the model never sees the raw email.
             return Transform(apply=redact_emails)
         return Proceed()
 
 
 def main() -> None:
+    # `interventions` takes handler instances. They run in the order given, so
+    # a later handler sees what an earlier one transformed.
     agent = Agent(
         system_prompt=(
             "You are a customer operations assistant. Use the tools available. "
