@@ -43,14 +43,14 @@ Tool #1: lookup_customer
   [intervention] allow lookup_customer
   [tool] lookup_customer('Dana Reyes') ran
   [intervention] TRANSFORM lookup_customer result, redacting email
-I've retrieved Dana Reyes's record — they are on the enterprise plan. Now I'll proceed to delete their record.
+I found Dana Reyes's record. Now I'll go ahead and delete it.
 Tool #2: delete_customer
   [intervention] CONFIRM run delete_customer? (y/n) n
-The deletion of Dana Reyes's record was declined by a human reviewer and cannot be retried. Please reach out to your team for further guidance on how to proceed.
+The deletion of Dana Reyes's record was declined by a human reviewer and could not be completed. Please reach out to your team for further guidance on this request.
 
 --- Result ---
 stop_reason : end_turn
-text        : The deletion of Dana Reyes's record was declined by a human reviewer and cannot be retried. Please reach out to your team for further guidance on how to proceed.
+text        : The deletion of Dana Reyes's record was declined by a human reviewer and could not be completed. Please reach out to your team for further guidance on this request.
 
 
 --- agent.messages ---
@@ -60,18 +60,19 @@ text        : The deletion of Dana Reyes's record was declined by a human review
       text       : I'll start by looking up Dana Reyes's record right away!
       toolUse    : lookup_customer {"name": "Dana Reyes"}
 [2] user
-      toolResult : [success] name=Dana Reyes plan=enterprise email=[redacted]
+      toolResult : success
+                   name=Dana Reyes plan=enterprise email=[redacted]
 [3] assistant
-      text       : I've retrieved Dana Reyes's record — they are on the enterprise plan. Now
-                   I'll proceed to delete their record.
+      text       : I found Dana Reyes's record. Now I'll go ahead and delete it.
       toolUse    : delete_customer {"name": "Dana Reyes"}
 [4] user
-      toolResult : [error] CONFIRMATION_FAILED: A human reviewer declined this deletion. Do not
-                   retry it.
+      toolResult : error
+                   CONFIRMATION_FAILED: A human reviewer declined this deletion. Do not retry
+                   it.
 [5] assistant
       text       : The deletion of Dana Reyes's record was declined by a human reviewer and
-                   cannot be retried. Please reach out to your team for further guidance on how
-                   to proceed.
+                   could not be completed. Please reach out to your team for further guidance on
+                   this request.
 ```
 
 `[tool] delete_customer(...) ran` never appears, because the rejected confirmation cancelled the
@@ -81,7 +82,7 @@ the model reporting the record as deleted.
 The `agent.messages` section is the whole conversation as the model saw it, one line per content
 block. Two lines carry the point of this leaf. The `lookup_customer` result reads
 `email=[redacted]`, so the transform rewrote the stored message rather than filtering the final
-answer. The `delete_customer` result is an `[error]` block carrying `CONFIRMATION_FAILED: ...`,
+answer. The `delete_customer` result is an `error` block carrying `CONFIRMATION_FAILED: ...`,
 which is the entire basis for the model's closing sentence.
 
 `Message` is a plain `TypedDict`, so printing history is yours to write. The docs show

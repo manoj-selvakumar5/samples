@@ -52,7 +52,7 @@ outside a provider-specific area configures a model, so every example runs on th
   within an area. The tables above are the authority on reading order.
 - **Numbers are assigned once and not reused.** A new area takes its reserved slot rather than
   pushing its neighbours along, so a published path never changes meaning.
-- **Each leaf teaches one concept** and keeps `main.py` under 150 lines.
+- **Each leaf teaches one concept.**
 - **Each leaf README lists the symbols it teaches**, and carries the SDK version it was verified
   against.
 - **Output shown in a leaf README is real**, captured from an actual run.

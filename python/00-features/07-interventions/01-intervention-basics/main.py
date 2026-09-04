@@ -61,6 +61,7 @@ def redact_emails(event: AfterToolCallEvent) -> None:
 
 def print_history(messages: list[dict]) -> None:
     """Print the conversation the way the model saw it."""
+    pad = " " * 19
     for index, message in enumerate(messages):
         print(f"[{index}] {message['role']}")
         for block in message["content"]:
@@ -70,10 +71,12 @@ def print_history(messages: list[dict]) -> None:
                 label, value = "toolUse", f"{use['name']} {json.dumps(use['input'])}"
             elif "toolResult" in block:
                 result = block["toolResult"]
+                # Status on its own line, the returned text indented beneath it.
                 text = "".join(c.get("text", "") for c in result["content"])
-                label, value = "toolResult", f"[{result['status']}] {text}"
-            print(textwrap.fill(value, 96, initial_indent=f"      {label:<11}: ",
-                                subsequent_indent=" " * 19))
+                label, value = "toolResult", f"{result['status']}\n{text}"
+            for n, line in enumerate(value.split("\n")):
+                head = f"      {label:<11}: " if n == 0 else pad
+                print(textwrap.fill(line, 96, initial_indent=head, subsequent_indent=pad))
 
 
 class Governance(InterventionHandler):

@@ -6,8 +6,11 @@ the prompt, or the resume plumbing.
 Run:
     python main.py
 
-The script asks for approval on stdin. Approve with 'y', reject with 'n'.
+Approve the transfer on stdin with 'y'; anything else rejects it.
 """
+
+import json
+import textwrap
 
 from strands import Agent, tool
 from strands.vended_interventions import HumanInTheLoop
@@ -43,6 +46,26 @@ def transfer_funds(account: str, amount: float, destination: str) -> str:
     return f"transferred {amount} from {account} to {destination}"
 
 
+def print_history(messages: list[dict]) -> None:
+    """Print the conversation the way the model saw it."""
+    pad = " " * 19
+    for index, message in enumerate(messages):
+        print(f"[{index}] {message['role']}")
+        for block in message["content"]:
+            label, value = "text", block.get("text", "")
+            if "toolUse" in block:
+                use = block["toolUse"]
+                label, value = "toolUse", f"{use['name']} {json.dumps(use['input'])}"
+            elif "toolResult" in block:
+                result = block["toolResult"]
+                # Status on its own line, the returned text indented beneath it.
+                text = "".join(c.get("text", "") for c in result["content"])
+                label, value = "toolResult", f"{result['status']}\n{text}"
+            for n, line in enumerate(value.split("\n")):
+                head = f"      {label:<11}: " if n == 0 else pad
+                print(textwrap.fill(line, 96, initial_indent=head, subsequent_indent=pad))
+
+
 def main() -> None:
     # By default EVERY tool requires approval. `allowed_tools` is the
     # allow-list of tools that run without asking, so approval is opt-out
@@ -69,9 +92,14 @@ def main() -> None:
 
     result = agent(prompt)
 
-    print("\n--- Result ---")
+    print("\n\n--- Result ---")
     print(f"stop_reason : {result.stop_reason}")
     print(f"text        : {result}")
+
+    # The approval decision reaches the model as the tool result: the transfer
+    # either ran, or the call comes back cancelled at the confirmation step.
+    print("\n--- agent.messages ---")
+    print_history(agent.messages)
 
 
 if __name__ == "__main__":
