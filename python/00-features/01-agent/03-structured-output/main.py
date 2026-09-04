@@ -4,6 +4,8 @@ Run:
     python main.py
 """
 
+import textwrap
+
 from pydantic import BaseModel, Field
 from strands import Agent
 
@@ -27,35 +29,27 @@ REPORT = (
     "paged the on-call. Rolled back at 09:41 and things were back to normal by 09:50."
 )
 
-agent = Agent(
-    structured_output_model=Incident,
-    callback_handler=None,  # silence the streaming trace
-)
-
 
 def main() -> None:
+    print("--- Input ---")
+    # break_on_hyphens=False keeps "on-call" off the end of a line.
+    print(textwrap.indent(textwrap.fill(REPORT, width=84, break_on_hyphens=False), "  "))
+    print()
+
+    agent = Agent(structured_output_model=Incident, callback_handler=None)
     incident = agent(REPORT).structured_output
 
-    print(f"type: {type(incident).__name__}, events: {len(incident.events)}")
-    print(f"whole object: {incident}")
+    print("--- Result ---")
 
-    # A list of objects. Iterate it directly; prose would need a parser first.
+    # A list of objects, so it iterates, sorts, and renders like any other list.
+    # Times are padded to the widest one rather than assumed to be equal width.
+    width = max(len(event.time) for event in incident.events)
     for event in incident.events:
-        print(f"{event.time}  {event.detail}")
+        print(f"  {event.time:<{width}}  {event.detail}")
+    print()
 
     print(f"resolved: {incident.resolved}")
 
 
 if __name__ == "__main__":
     main()
-
-
-"""
-type: Incident, events: 4
-whole object: events=[Event(time='09:12', detail='Release pushed'), Event(time='09:20', detail='Error rates tripled, on-call paged'), Event(time='09:41', detail='Rollback performed'), Event(time='09:50', detail='Service returned to normal')] resolved=True
-09:12  Release pushed
-09:20  Error rates tripled, on-call paged
-09:41  Rollback performed
-09:50  Service returned to normal
-resolved: True
-"""
