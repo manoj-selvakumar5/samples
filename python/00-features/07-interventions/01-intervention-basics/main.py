@@ -11,6 +11,7 @@ The script asks for approval on stdin before the destructive tool runs. Approve
 with 'y', reject with anything else.
 """
 
+import json
 import re
 
 from strands import Agent, tool
@@ -121,11 +122,10 @@ def main() -> None:
     print(f"stop_reason : {result.stop_reason}")
     print(f"text        : {result}")
 
-    # The email never reaches the model, because the transform rewrote the tool
-    # result before it was appended to the conversation.
-    transcript = str(agent.messages)
-    print(f"\nemail in conversation history : {bool(EMAIL.search(transcript))}")
-    print(f"'[redacted]' in history       : {'[redacted]' in transcript}")
+    # The transform rewrote the tool result before it was appended, so the
+    # email is absent from the conversation itself, not merely from the answer.
+    print("\n--- agent.messages ---")
+    print(json.dumps(agent.messages, indent=2, ensure_ascii=False))
 
 
 if __name__ == "__main__":

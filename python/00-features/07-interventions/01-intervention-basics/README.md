@@ -43,23 +43,151 @@ Tool #1: lookup_customer
   [intervention] allow lookup_customer
   [tool] lookup_customer('Dana Reyes') ran
   [intervention] TRANSFORM lookup_customer result, redacting email
-I've retrieved Dana Reyes's record. Now I'll proceed with deleting it.
+I found Dana Reyes's record — they are on the enterprise plan. Now I'll go ahead and delete their record!
 Tool #2: delete_customer
   [intervention] CONFIRM run delete_customer? (y/n) n
-The lookup found Dana Reyes as an enterprise plan customer, but the deletion was declined by a human reviewer and could not be completed. Please reach out to your team for further guidance on this account.
+The deletion of Dana Reyes's record was declined by a human reviewer and could not be completed. Please contact your system administrator if you believe this was done in error.
 
 --- Result ---
 stop_reason : end_turn
-text        : The lookup found Dana Reyes as an enterprise plan customer, but the deletion was declined by a human reviewer and could not be completed. Please reach out to your team for further guidance on this account.
+text        : The deletion of Dana Reyes's record was declined by a human reviewer and could not be completed. Please contact your system administrator if you believe this was done in error.
 
 
-email in conversation history : False
-'[redacted]' in history       : True
+--- agent.messages ---
+[
+  {
+    "role": "user",
+    "content": [
+      {
+        "text": "Look up the customer Dana Reyes, then delete their record."
+      }
+    ],
+    "tracking_id": "5a463697-e37f-4460-804d-6a3b01e7f2ab"
+  },
+  {
+    "role": "assistant",
+    "content": [
+      {
+        "text": "I'll start by looking up Dana Reyes's record right away!"
+      },
+      {
+        "toolUse": {
+          "toolUseId": "tooluse_CjBU2kBAO03EQORvDrIg8L",
+          "name": "lookup_customer",
+          "input": {
+            "name": "Dana Reyes"
+          }
+        }
+      }
+    ],
+    "metadata": {
+      "usage": {
+        "inputTokens": 705,
+        "outputTokens": 72,
+        "totalTokens": 777
+      },
+      "metrics": {
+        "latencyMs": 2729,
+        "timeToFirstByteMs": 2407
+      }
+    },
+    "tracking_id": "d688cec7-0bcf-4506-bcb7-c37953021e4f"
+  },
+  {
+    "role": "user",
+    "content": [
+      {
+        "toolResult": {
+          "toolUseId": "tooluse_CjBU2kBAO03EQORvDrIg8L",
+          "status": "success",
+          "content": [
+            {
+              "text": "name=Dana Reyes plan=enterprise email=[redacted]"
+            }
+          ]
+        }
+      }
+    ],
+    "tracking_id": "45994e3f-5614-4d88-ada5-8a013665b246"
+  },
+  {
+    "role": "assistant",
+    "content": [
+      {
+        "text": "I found Dana Reyes's record — they are on the enterprise plan. Now I'll go ahead and delete their record!"
+      },
+      {
+        "toolUse": {
+          "toolUseId": "tooluse_zR4bKYwR3DAgcnIFsHI1IV",
+          "name": "delete_customer",
+          "input": {
+            "name": "Dana Reyes"
+          }
+        }
+      }
+    ],
+    "metadata": {
+      "usage": {
+        "inputTokens": 803,
+        "outputTokens": 83,
+        "totalTokens": 886
+      },
+      "metrics": {
+        "latencyMs": 1511,
+        "timeToFirstByteMs": 938
+      }
+    },
+    "tracking_id": "990a05dc-c371-49ba-8c58-562410a5ada3"
+  },
+  {
+    "role": "user",
+    "content": [
+      {
+        "toolResult": {
+          "toolUseId": "tooluse_zR4bKYwR3DAgcnIFsHI1IV",
+          "status": "error",
+          "content": [
+            {
+              "text": "CONFIRMATION_FAILED: A human reviewer declined this deletion. Do not retry it."
+            }
+          ]
+        }
+      }
+    ],
+    "tracking_id": "fae283e1-8fb4-478e-943c-376650072ebb"
+  },
+  {
+    "role": "assistant",
+    "content": [
+      {
+        "text": "The deletion of Dana Reyes's record was declined by a human reviewer and could not be completed. Please contact your system administrator if you believe this was done in error."
+      }
+    ],
+    "metadata": {
+      "usage": {
+        "inputTokens": 923,
+        "outputTokens": 38,
+        "totalTokens": 961
+      },
+      "metrics": {
+        "latencyMs": 1467,
+        "timeToFirstByteMs": 1029
+      }
+    },
+    "tracking_id": "18709e24-dd65-4fbd-9782-1a25a1035649"
+  }
+]
 ```
 
 `[tool] delete_customer(...) ran` never appears, because the rejected confirmation cancelled the
 call before the tool function was entered. Answer `y` instead and that line appears, followed by
 the model reporting the record as deleted.
+
+The printed `agent.messages` is the whole conversation as the model saw it. Two things are worth
+finding in it: the `lookup_customer` result reads `email=[redacted]`, so the transform rewrote the
+message itself rather than filtering the final answer, and the `delete_customer` result is a
+`status: "error"` block carrying `CONFIRMATION_FAILED: ...`, which is the entire basis for the
+model's closing sentence.
 
 ## The five actions
 
