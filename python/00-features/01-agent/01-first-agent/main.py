@@ -7,6 +7,9 @@ Run:
 from strands import Agent, tool
 
 
+# The @tool decorator makes this function available to the agent as a tool.
+# The docstring and type hints become the description and input schema that
+# the model reads when it decides whether to call it.
 @tool
 def word_count(text: str) -> int:
     """Count the words in a block of text.
@@ -22,7 +25,9 @@ def word_count(text: str) -> int:
 
 
 def main() -> None:
-    # No model is configured, so the agent uses the SDK default.
+    # `tools` is the list the agent is allowed to choose from. No model is
+    # configured here, so the agent uses the SDK default; pass `model=` to
+    # choose one.
     agent = Agent(
         system_prompt=(
             "You are a concise assistant. When asked to count words, use the "
@@ -34,6 +39,8 @@ def main() -> None:
     prompt = "How many words are in this sentence: 'the quick brown fox jumps over the lazy dog'?"
     print(f"Prompt: {prompt}\n")
 
+    # Invoke the agent normally. The model decides whether to call word_count.
+    # The system prompt asks it to, but nothing here forces the call.
     result = agent(prompt)
 
     # `result` is an AgentResult, not a string. Printing it renders the final
