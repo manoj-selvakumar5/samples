@@ -7,12 +7,12 @@ Transform. The README lists the full set and where each one is valid.
 Run:
     python main.py
 
-The script asks for approval on stdin before the destructive tool runs. Approve
-with 'y', reject with anything else.
+Approve the destructive tool on stdin with 'y'; anything else rejects it.
 """
 
 import json
 import re
+import textwrap
 
 from strands import Agent, tool
 from strands.hooks.events import AfterToolCallEvent, BeforeToolCallEvent
@@ -57,6 +57,23 @@ def redact_emails(event: AfterToolCallEvent) -> None:
     for block in event.result.get("content", []):
         if "text" in block:
             block["text"] = EMAIL.sub("[redacted]", block["text"])
+
+
+def print_history(messages: list[dict]) -> None:
+    """Print the conversation the way the model saw it."""
+    for index, message in enumerate(messages):
+        print(f"[{index}] {message['role']}")
+        for block in message["content"]:
+            label, value = "text", block.get("text", "")
+            if "toolUse" in block:
+                use = block["toolUse"]
+                label, value = "toolUse", f"{use['name']} {json.dumps(use['input'])}"
+            elif "toolResult" in block:
+                result = block["toolResult"]
+                text = "".join(c.get("text", "") for c in result["content"])
+                label, value = "toolResult", f"[{result['status']}] {text}"
+            print(textwrap.fill(value, 96, initial_indent=f"      {label:<11}: ",
+                                subsequent_indent=" " * 19))
 
 
 class Governance(InterventionHandler):
@@ -125,7 +142,7 @@ def main() -> None:
     # The transform rewrote the tool result before it was appended, so the
     # email is absent from the conversation itself, not merely from the answer.
     print("\n--- agent.messages ---")
-    print(json.dumps(agent.messages, indent=2, ensure_ascii=False))
+    print_history(agent.messages)
 
 
 if __name__ == "__main__":
