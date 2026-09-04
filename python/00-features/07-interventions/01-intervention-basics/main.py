@@ -1,18 +1,21 @@
 """Gate and rewrite what an agent does, using an intervention handler.
 
 An intervention handler sits on the agent loop and returns a typed action at
-each step it overrides. This script uses three of them: Proceed, Deny, and
+each step it overrides. This script uses three of them: Proceed, Confirm, and
 Transform. The README lists the full set and where each one is valid.
 
 Run:
     python main.py
+
+The script asks for approval on stdin before the destructive tool runs. Approve
+with 'y', reject with anything else.
 """
 
 import re
 
 from strands import Agent, tool
 from strands.hooks.events import AfterToolCallEvent, BeforeToolCallEvent
-from strands.interventions import Deny, InterventionHandler, Proceed, Transform
+from strands.interventions import Confirm, InterventionHandler, Proceed, Transform
 
 EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.]+")
 
@@ -41,7 +44,7 @@ def delete_customer(name: str) -> str:
     Returns:
         Confirmation that the record was deleted.
     """
-    # This never prints. The handler denies the call before the tool runs.
+    # This prints only if you approve the call at the prompt.
     print(f"  [tool] delete_customer({name!r}) ran")
     return f"deleted {name}"
 
@@ -56,7 +59,7 @@ def redact_emails(event: AfterToolCallEvent) -> None:
 
 
 class Governance(InterventionHandler):
-    """Blocks destructive tools and redacts PII from tool results.
+    """Asks before destructive tools, and redacts PII from tool results.
 
     Override only the lifecycle methods you need. The ones you leave alone are
     not called.
@@ -65,16 +68,24 @@ class Governance(InterventionHandler):
     # Required on every handler, and unique across the handlers on one agent.
     name = "governance"
 
-    DESTRUCTIVE = {"delete_customer"}
+    NEEDS_APPROVAL = {"delete_customer"}
 
-    def before_tool_call(self, event: BeforeToolCallEvent, **kwargs) -> Proceed | Deny:
+    def before_tool_call(self, event: BeforeToolCallEvent, **kwargs) -> Proceed | Confirm:
         tool_name = event.tool_use["name"]
-        if tool_name in self.DESTRUCTIVE:
-            print(f"  [intervention] DENY {tool_name}")
-            # Deny is not an exception. The tool never runs, the loop continues,
-            # and the model receives this reason as a failed tool result, so
-            # write it as an instruction rather than as a log line.
-            return Deny(reason="Deleting customer records requires a change ticket.")
+        if tool_name in self.NEEDS_APPROVAL:
+            # Ask the person here, then hand the answer to Confirm as
+            # `response`. Confirm scores it with its `evaluate` function, which
+            # accepts 'y' or 'yes' and rejects everything else, including an
+            # empty line.
+            answer = input(f"  [intervention] CONFIRM run {tool_name}? (y/n) ")
+            # On a rejection the model is sent "CONFIRMATION_FAILED: <prompt>",
+            # so write `prompt` as a statement about the policy. Phrase it as a
+            # question and the model will relay that question back to the user
+            # instead of reporting that the call was refused.
+            return Confirm(
+                prompt="A human reviewer declined this deletion. Do not retry it.",
+                response=answer,
+            )
         print(f"  [intervention] allow {tool_name}")
         # Proceed allows the step unchanged.
         return Proceed()
@@ -106,7 +117,9 @@ def main() -> None:
 
     result = agent(prompt)
 
-    print("\n--- Result ---")
+    # Two newlines: the first closes the model's streamed line, which does not
+    # end in one, and the second is the blank line before this heading.
+    print("\n\n--- Result ---")
     print(f"stop_reason : {result.stop_reason}")
     print(f"text        : {result}")
 

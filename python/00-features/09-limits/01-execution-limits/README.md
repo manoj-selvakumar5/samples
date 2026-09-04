@@ -23,6 +23,10 @@ pip install -r requirements.txt
 python main.py
 ```
 
+The script runs four configurations against the same prompt and pauses between them. Press Enter
+to continue, or Ctrl-C to stop. When stdin is not a terminal, as when the output is redirected, it
+runs straight through without pausing.
+
 ## Output
 
 ```
@@ -42,8 +46,11 @@ Tool #4: next_number
 
 Tool #5: next_number
     [tool] next_number(5) -> 6
-The final number is 6.  stop_reason  : end_turn
+The final number is 6.
+  stop_reason  : end_turn
   tokens       : 4865 in, 276 out
+
+[Enter] next configuration, or Ctrl-C to stop 
 
 --- limits={'turns': 3} ---
 
@@ -55,8 +62,11 @@ Tool #2: next_number
 
 Tool #3: next_number
     [tool] next_number(3) -> 4
+
   stop_reason  : limit_turns
   tokens       : 2135 in, 160 out
+
+[Enter] next configuration, or Ctrl-C to stop 
 
 --- limits={'total_tokens': 2000} ---
 
@@ -68,8 +78,11 @@ Tool #2: next_number
 
 Tool #3: next_number
     [tool] next_number(3) -> 4
+
   stop_reason  : limit_total_tokens
   tokens       : 2135 in, 160 out
+
+[Enter] next configuration, or Ctrl-C to stop 
 
 --- limits={'turns': 2, 'total_tokens': 5000} ---
 
@@ -78,6 +91,7 @@ Tool #1: next_number
 
 Tool #2: next_number
     [tool] next_number(2) -> 3
+
   stop_reason  : limit_turns
   tokens       : 1357 in, 107 out
 ```
@@ -127,4 +141,4 @@ means no limit on that dimension.
 - [`07-interventions/01-intervention-basics`](../../07-interventions/01-intervention-basics/) for gating *what*
   the agent does rather than *how much*.
 
-Verified against strands-agents 1.53.0 on 2026-08-26
+Verified against strands-agents 1.54.0 on 2026-09-04

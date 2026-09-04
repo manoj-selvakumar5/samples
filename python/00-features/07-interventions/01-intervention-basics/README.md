@@ -5,8 +5,8 @@ Part II - Control the loop
 Gate and rewrite what an agent does, using an intervention handler.
 
 An intervention handler sits on the agent loop and returns an action at each step it overrides.
-This leaf blocks a destructive tool and redacts an email address out of a tool result before the
-model ever sees it.
+This leaf asks a person before a destructive tool runs, and redacts an email address out of a tool
+result before the model ever sees it.
 
 ## Teaches
 
@@ -14,7 +14,7 @@ model ever sees it.
 |--------|-------------|
 | `InterventionHandler` | `strands.interventions.InterventionHandler` |
 | `Proceed` | `strands.interventions.Proceed` |
-| `Deny` | `strands.interventions.Deny` |
+| `Confirm` | `strands.interventions.Confirm` |
 | `Transform` | `strands.interventions.Transform` |
 | `interventions=` | keyword on `strands.Agent` |
 
@@ -30,6 +30,9 @@ pip install -r requirements.txt
 python main.py
 ```
 
+The script asks for approval on stdin before `delete_customer` runs. Approve with `y`, reject with
+anything else.
+
 ## Output
 
 ```
@@ -40,21 +43,23 @@ Tool #1: lookup_customer
   [intervention] allow lookup_customer
   [tool] lookup_customer('Dana Reyes') ran
   [intervention] TRANSFORM lookup_customer result, redacting email
-I found Dana Reyes's record. Now I'll proceed to delete it.
+I've retrieved Dana Reyes's record. Now I'll proceed with deleting it.
 Tool #2: delete_customer
-  [intervention] DENY delete_customer
-The deletion was denied because deleting customer records requires a change ticket to be submitted first. Please create a change ticket and try again once it has been approved.
+  [intervention] CONFIRM run delete_customer? (y/n) n
+The lookup found Dana Reyes as an enterprise plan customer, but the deletion was declined by a human reviewer and could not be completed. Please reach out to your team for further guidance on this account.
+
 --- Result ---
 stop_reason : end_turn
-text        : The deletion was denied because deleting customer records requires a change ticket to be submitted first. Please create a change ticket and try again once it has been approved.
+text        : The lookup found Dana Reyes as an enterprise plan customer, but the deletion was declined by a human reviewer and could not be completed. Please reach out to your team for further guidance on this account.
 
 
 email in conversation history : False
 '[redacted]' in history       : True
 ```
 
-`[tool] delete_customer(...) ran` never appears, because the handler blocked the call before the
-tool function was entered.
+`[tool] delete_customer(...) ran` never appears, because the rejected confirmation cancelled the
+call before the tool function was entered. Answer `y` instead and that line appears, followed by
+the model reporting the record as deleted.
 
 ## The five actions
 
@@ -86,10 +91,20 @@ tool function was entered.
   ```
 
 - **A `name` attribute is required** on the subclass.
-- **`Deny` is not an exception.** The loop continues, and the model is told the call was refused
-  along with your reason, so it can explain itself or choose another path. The output above shows
-  the model relaying the change-ticket requirement to the user.
-- **The `reason` text reaches the model**, so write it as an instruction rather than as a log line.
+- **Collect the answer yourself, then hand it to `Confirm` as `response`.** With a `response` set,
+  the agent evaluates it inline and never pauses the loop. Leave `response` unset and `Confirm`
+  instead breaks out of the loop to wait for an external resume, which is what a web UI would use.
+- **`prompt` is written for the model, not only for the person.** On a rejection the tool result
+  becomes `CONFIRMATION_FAILED: <prompt>`, so a `prompt` phrased as a question ("Run
+  delete_customer?") comes back to the model as a question and it will relay that question to the
+  user instead of reporting the refusal. Write it as a statement about the policy. Ask the person
+  with your own `input()` string.
+- **`Confirm` scores the answer with `evaluate`.** The default accepts `True`, `'y'`, or `'yes'`,
+  case-insensitive and trimmed, and rejects everything else. An empty line is a rejection, so the
+  gate fails closed.
+- **A rejection is not an exception.** The tool is cancelled, the loop continues, and the model is
+  told the call was not approved, so it can explain itself and finish its turn normally. The run
+  above ends with `stop_reason: end_turn`, not an error.
 - **`Transform` mutates the event in place** and returns nothing. Rewriting `event.result` in
   `after_tool_call` happens before the result is appended to the conversation, which is why the
   email is absent from `agent.messages` entirely rather than merely hidden from the final answer.
@@ -97,8 +112,11 @@ tool function was entered.
 
 ## Variations
 
-- **Return `Guide(feedback=...)`** instead of `Deny` when you want the model corrected rather than
-  blocked, for example steering it toward a read-only tool.
+- **Return `Deny(reason=...)`** instead of `Confirm` when a tool should never run and there is
+  nothing to ask, for example when policy requires a change ticket. The reason reaches the model,
+  so write it as an instruction rather than as a log line.
+- **Return `Guide(feedback=...)`** when you want the model corrected rather than blocked, for
+  example steering it toward a read-only tool.
 - **Deny at the invocation level** by overriding `before_invocation`, which rejects the request
   before a single model call is billed.
 - **Stack handlers** by passing several to `interventions=[...]`. They run in order.
@@ -107,7 +125,8 @@ tool function was entered.
 
 ## See also
 
-- [`07-interventions/03-human-in-the-loop`](../03-human-in-the-loop/) for the vended handler that asks a person.
+- [`07-interventions/03-human-in-the-loop`](../03-human-in-the-loop/) for the vended `HumanInTheLoop`
+  handler, which wraps this same `Confirm` plumbing plus tool allow-lists and an interrupt mode.
 - [`09-limits/01-execution-limits`](../../09-limits/01-execution-limits/) for capping cost rather than gating behavior.
 
-Verified against strands-agents 1.53.0 on 2026-08-26
+Verified against strands-agents 1.54.0 on 2026-09-04
