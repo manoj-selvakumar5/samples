@@ -35,10 +35,11 @@ Prompt: How many words are in this sentence: 'the quick brown fox jumps over the
 
 Tool #1: word_count
   [tool] word_count called with 43 characters
-The sentence **"the quick brown fox jumps over the lazy dog"** contains **9 words**.
+The sentence *"the quick brown fox jumps over the lazy dog"* contains **9 words**.
+
 --- AgentResult ---
 stop_reason : end_turn
-text        : The sentence **"the quick brown fox jumps over the lazy dog"** contains **9 words**.
+text        : The sentence *"the quick brown fox jumps over the lazy dog"* contains **9 words**.
 
 role        : assistant
 blocks      : 1

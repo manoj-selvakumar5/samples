@@ -117,8 +117,7 @@ def main() -> None:
 
     result = agent(prompt)
 
-    # Two newlines: the first closes the model's streamed line, which does not
-    # end in one, and the second is the blank line before this heading.
+    # The first \n closes the model's streamed line, which does not end in one.
     print("\n\n--- Result ---")
     print(f"stop_reason : {result.stop_reason}")
     print(f"text        : {result}")
