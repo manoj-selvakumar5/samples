@@ -39,12 +39,12 @@ python main.py
   limits output_tokens=64 -> limit_output_tokens  OK
 
 --- Coverage: 7 of 12 ---
-  [not here]     cancelled              agent.cancel(), a later 09-limits/ leaf
-  [not here]     checkpoint             checkpointing=True, a later 10-sessions/ leaf
+  [not here]     cancelled              agent.cancel()
+  [not here]     checkpoint             checkpointing=True
   [not here]     content_filtered       provider-side content filtering
   [demonstrated] end_turn               model finished on its own
-  [not here]     guardrail_intervened   Amazon Bedrock Guardrails, a later 09-limits/ leaf
-  [not here]     interrupt              an intervention raising an interrupt, a later 07-interventions/ leaf
+  [not here]     guardrail_intervened   Amazon Bedrock Guardrails
+  [not here]     interrupt              an intervention raising an interrupt
   [demonstrated] limit_output_tokens    the output_tokens cap in `limits`
   [demonstrated] limit_total_tokens     the total_tokens cap in `limits`
   [demonstrated] limit_turns            the turns cap in `limits`
@@ -105,4 +105,4 @@ The script says so at runtime rather than quietly covering seven and implying tw
 - [`09-limits/01-execution-limits`](../01-execution-limits/) for the three `limit_*` values.
 - [`01-agent/03-structured-output`](../../01-agent/03-structured-output/) for why `tool_use` shows up on success.
 
-Verified against strands-agents 1.53.0 on 2026-08-26
+Verified against strands-agents 1.54.0 on 2026-09-03

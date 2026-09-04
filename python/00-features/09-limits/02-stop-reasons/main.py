@@ -16,14 +16,14 @@ from strands.types.exceptions import MaxTokensReachedException
 
 ALL_STOP_REASONS = sorted(typing.get_args(StopReason))
 
-# Reachable from the areas built so far. The rest are listed in the README
-# alongside the area that will own them.
+# Values this script does not reach, and the mechanism that produces each one.
+# The README says which leaf will own them.
 NOT_DEMONSTRATED = {
-    "cancelled": "agent.cancel(), a later 09-limits/ leaf",
-    "checkpoint": "checkpointing=True, a later 10-sessions/ leaf",
+    "cancelled": "agent.cancel()",
+    "checkpoint": "checkpointing=True",
     "content_filtered": "provider-side content filtering",
-    "guardrail_intervened": "Amazon Bedrock Guardrails, a later 09-limits/ leaf",
-    "interrupt": "an intervention raising an interrupt, a later 07-interventions/ leaf",
+    "guardrail_intervened": "Amazon Bedrock Guardrails",
+    "interrupt": "an intervention raising an interrupt",
 }
 
 
