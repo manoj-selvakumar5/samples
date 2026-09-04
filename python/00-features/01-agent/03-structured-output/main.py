@@ -1,4 +1,4 @@
-"""Turn a free-text report into a typed Python object you can walk.
+"""Turn free text into a validated Pydantic object with Strands Structured Output.
 
 Run:
     python main.py
@@ -10,6 +10,9 @@ from pydantic import BaseModel, Field
 from strands import Agent
 
 
+# Define the structure we want the agent to return.
+# Strands uses this Pydantic model as the output schema and validates
+# the model's response against it.
 class Event(BaseModel):
     """One thing that happened during the incident."""
 
@@ -17,11 +20,17 @@ class Event(BaseModel):
     detail: str = Field(description="What happened, in a few words")
 
 
+# Structured output can contain nested Pydantic models.
+# Because `events` is list[Event], each item must match the Event schema.
 class Incident(BaseModel):
     """A timeline reconstructed from an engineer's account of an outage."""
 
-    events: list[Event] = Field(description="Everything that happened, in order")
-    resolved: bool = Field(description="True if service was restored")
+    events: list[Event] = Field(
+        description="Everything that happened, in order"
+    )
+    resolved: bool = Field(
+        description="True if service was restored"
+    )
 
 
 REPORT = (
@@ -31,23 +40,42 @@ REPORT = (
 
 
 def main() -> None:
-    print("--- Input ---")
-    # break_on_hyphens=False keeps "on-call" off the end of a line.
-    print(textwrap.indent(textwrap.fill(REPORT, width=84, break_on_hyphens=False), "  "))
+    print("--- Input: one paragraph of free text ---")
+    print(
+        textwrap.indent(
+            textwrap.fill(REPORT, width=84, break_on_hyphens=False),
+            "  ",
+        )
+    )
     print()
 
-    agent = Agent(structured_output_model=Incident, callback_handler=None)
-    incident = agent(REPORT).structured_output
+    # Set Incident as the agent's default structured output type.
+    # Each invocation of this agent will now try to return an Incident.
+    agent = Agent(
+        structured_output_model=Incident,
+        callback_handler=None,
+    )
 
-    print("--- Result ---")
+    # Invoke the agent normally.
+    # The validated Incident object is available on
+    # `result.structured_output`.
+    result = agent(REPORT)
+    incident = result.structured_output
 
-    # A list of objects, so it iterates, sorts, and renders like any other list.
-    # Times are padded to the widest one rather than assumed to be equal width.
+    print("--- Result: agent(REPORT).structured_output ---")
+
+    # `incident.events` is now a normal Python list of Event objects.
+    # There is no free-form response to parse into these fields ourselves.
     width = max(len(event.time) for event in incident.events)
+
     for event in incident.events:
         print(f"  {event.time:<{width}}  {event.detail}")
+
     print()
 
+    # Structured output is not limited to copying text directly.
+    # The model can also infer field values from the input.
+    # Here, "back to normal" provides the evidence for `resolved=True`.
     print(f"resolved: {incident.resolved}")
 
 
