@@ -7,6 +7,10 @@ Every way the agent loop can end, and how to tell them apart.
 `stop_reason` is a twelve-value union. Almost every Part II feature produces one of these values,
 and this is the only place they are shown as a set.
 
+The point is not that the values exist. It is that a returned `AgentResult` does not mean a
+finished task, so the caller has to branch on how the run ended. Each case in the script pairs a
+realistic ending with the recovery it calls for, and prints that recovery alongside the value.
+
 ## Teaches
 
 | Symbol | Import path |
@@ -14,6 +18,7 @@ and this is the only place they are shown as a set.
 | `StopReason` | `strands.types.event_loop.StopReason` |
 | `AgentResult.stop_reason` | returned by every invoke path |
 | `MaxTokensReachedException` | `strands.types.exceptions.MaxTokensReachedException` |
+| `typing.get_args(StopReason)` | how the script derives its own coverage report |
 
 ## Prerequisites
 
@@ -61,7 +66,16 @@ quietly covering seven and implying twelve.
   invocation that hit a cap returns an ordinary `AgentResult`, so ignoring the field means treating
   a truncated run as a finished one.
 - **`stop_sequence` fires on the string appearing in output**, so the sequence is consumed and the
-  visible answer stops just before it. Counting to nine under `stop_sequences=["4"]` stops at three.
+  visible answer stops just before it. That makes a stop sequence a usable section delimiter: set it
+  to a heading you do not want written and the generation ends where that heading would have begun.
+- **Recovery differs by value, and only one of them means "use the text".** `end_turn` and
+  `stop_sequence` are finished; `tool_use` means the answer is in `structured_output`; every
+  `limit_*` value is resumable on a larger budget; `max_tokens` is resumable after raising the
+  ceiling; `guardrail_intervened` and `content_filtered` are terminal and should surface a refusal
+  rather than a retry. The script prints this mapping next to each result.
+- **The coverage report is derived, not written down.** It comes from
+  `typing.get_args(StopReason)`, so an SDK that adds a thirteenth value reports it as uncovered
+  instead of being silently ignored.
 
 ## Variations
 
@@ -79,4 +93,4 @@ quietly covering seven and implying twelve.
 - [`07-interventions/03-human-in-the-loop`](../../07-interventions/03-human-in-the-loop/) for `interrupt`, the
   one value in the table that this script does not reach but another leaf does.
 
-Verified against strands-agents 1.54.0 on 2026-09-03
+Verified against strands-agents 1.54.0 on 2026-09-04
