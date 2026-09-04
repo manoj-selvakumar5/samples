@@ -1,7 +1,8 @@
 """Pause the agent for human approval before a sensitive tool runs.
 
-HumanInTheLoop is a vended intervention handler. You do not write the pause,
-the prompt, or the resume plumbing.
+HumanInTheLoop is a vended intervention handler. By default it stops the run at
+the tool call and hands the decision back to you, so the approval can come from
+a terminal, a web UI, or a review queue. You resume by calling the agent again.
 
 Run:
     python main.py
@@ -71,12 +72,9 @@ def main() -> None:
     # allow-list of tools that run without asking, so approval is opt-out
     # rather than opt-in and a newly added tool is gated by default.
     #
-    # ask="stdio" prompts on the terminal. Omit `ask` entirely and the agent
-    # pauses via interrupt instead, which is what a web UI would use.
-    hitl = HumanInTheLoop(
-        allowed_tools=["check_balance"],
-        ask="stdio",
-    )
+    # No `ask` argument, so the handler never prompts. It pauses the run
+    # instead and leaves collecting the answer to the code below.
+    hitl = HumanInTheLoop(allowed_tools=["check_balance"])
 
     agent = Agent(
         system_prompt=(
@@ -91,6 +89,24 @@ def main() -> None:
     print(f"Prompt: {prompt}\n")
 
     result = agent(prompt)
+
+    # A run can pause more than once, and each pause reports every interrupt
+    # still waiting, so this is a loop over a list rather than a single check.
+    while result.stop_reason == "interrupt":
+        print(f"\n  [paused] stop_reason={result.stop_reason}, awaiting {len(result.interrupts)}")
+        responses = []
+        for interrupt in result.interrupts:
+            # `reason` is the approval prompt HumanInTheLoop built, arguments
+            # included. `id` is what the answer is addressed to. Collect the
+            # answer however you like: stdin here, a reviewer's click elsewhere.
+            print(f"  [interrupt] {interrupt.reason}")
+            answer = input("  approve? (y/n) ")
+            responses.append(
+                {"interruptResponse": {"interruptId": interrupt.id, "response": answer}}
+            )
+        # Resuming is another call to the same agent, with the responses
+        # standing in for a prompt.
+        result = agent(responses)
 
     print("\n\n--- Result ---")
     print(f"stop_reason : {result.stop_reason}")

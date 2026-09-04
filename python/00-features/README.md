@@ -29,7 +29,7 @@ The agent runs correctly without these. You add them because you do not trust it
 
 | ...what? | Use | Where |
 |----------|-----|-------|
-| **whether** a step runs at all | `InterventionHandler` returning `Deny`, `Confirm`, `Transform`, or `Guide` | [`07-interventions/`](./07-interventions/) |
+| **whether** a step runs at all | `InterventionHandler` returning `Proceed`, `Deny`, `Guide`, `Confirm`, or `Transform` | [`07-interventions/`](./07-interventions/) |
 | **how much** it does | `Limits` for turns, output tokens, total tokens | [`09-limits/01-execution-limits`](./09-limits/01-execution-limits/) |
 | **how** a run ended | `stop_reason` on the result | [`09-limits/02-stop-reasons`](./09-limits/02-stop-reasons/) |
 
