@@ -23,15 +23,15 @@ The agent runs correctly without these. You add them because you do not trust it
 | Area | Leaves |
 |------|--------|
 | [`07-interventions/`](./07-interventions/) | [`01-intervention-basics`](./07-interventions/01-intervention-basics/), [`03-human-in-the-loop`](./07-interventions/03-human-in-the-loop/) |
-| [`09-limits/`](./09-limits/) | [`01-execution-limits`](./09-limits/01-execution-limits/), [`02-stop-reasons`](./09-limits/02-stop-reasons/) |
+| [`09-limits/`](./09-limits/) | [`01-stop-a-runaway-agent`](./09-limits/01-stop-a-runaway-agent/) |
+| [`09-limits-b/`](./09-limits-b/) | [`01-invocation-limits`](./09-limits-b/01-invocation-limits/), [`02-cancellation`](./09-limits-b/02-cancellation/) — experimental second cut, one of the two areas will be kept |
 
 ### I want to restrict...
 
 | ...what? | Use | Where |
 |----------|-----|-------|
 | **whether** a step runs at all | `InterventionHandler` returning `Proceed`, `Deny`, `Guide`, `Confirm`, or `Transform` | [`07-interventions/`](./07-interventions/) |
-| **how much** it does | `Limits` for turns, output tokens, total tokens | [`09-limits/01-execution-limits`](./09-limits/01-execution-limits/) |
-| **how** a run ended | `stop_reason` on the result | [`09-limits/02-stop-reasons`](./09-limits/02-stop-reasons/) |
+| **how much** it does, or **how long** | `Limits` for turns and tokens, `cancel_signal` for time | [`09-limits/01-stop-a-runaway-agent`](./09-limits/01-stop-a-runaway-agent/) |
 
 ## Getting started
 
@@ -53,11 +53,9 @@ outside a provider-specific area configures a model, so every example runs on th
 - **Numbers are assigned once and not reused.** A new area takes its reserved slot rather than
   pushing its neighbours along, so a published path never changes meaning.
 - **Each leaf teaches one concept.**
-- **Each leaf README lists the symbols it teaches**, and carries the SDK version it was verified
-  against.
-- **Output shown in a leaf README is real**, captured from an actual run.
+- **Each leaf README lists the symbols it teaches.**
+- **Every leaf is verified by running it end to end.** The `Verified against` line at the bottom of
+  a leaf README records the SDK version of that last real run.
 - **Requirements track the latest SDK**, not a frozen version. Each leaf declares a floor it is
   known to need and an upper bound at the next major version, so `pip install -r requirements.txt`
-  gives you current Strands Agents rather than a stale pin. The `Verified against` line at the
-  bottom of each leaf README records the version the pasted output came from, so you can tell
-  whether your run is expected to match it exactly.
+  gives you current Strands Agents rather than a stale pin.

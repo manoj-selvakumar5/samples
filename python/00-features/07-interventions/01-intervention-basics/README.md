@@ -104,6 +104,6 @@ anything else.
 - [`07-interventions/03-human-in-the-loop`](../03-human-in-the-loop/) for the vended `HumanInTheLoop`
   handler, which wraps this same `Confirm` plumbing and, unlike the inline gate here, pauses the run
   so the decision can be answered from somewhere other than this terminal.
-- [`09-limits/01-execution-limits`](../../09-limits/01-execution-limits/) for capping cost rather than gating behavior.
+- [`09-limits/01-stop-a-runaway-agent`](../../09-limits/01-stop-a-runaway-agent/) for capping cost rather than gating behavior.
 
 Verified against strands-agents 1.54.0 on 2026-09-04

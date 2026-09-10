@@ -110,6 +110,5 @@ python main.py
 ## See also
 
 - [`01-agent/01-first-agent`](../01-first-agent/) for the basic construct-and-invoke path.
-- [`09-limits/02-stop-reasons`](../../09-limits/02-stop-reasons/) for why this leaf reports `tool_use`.
 
 Verified against strands-agents 1.54.0 on 2026-09-04

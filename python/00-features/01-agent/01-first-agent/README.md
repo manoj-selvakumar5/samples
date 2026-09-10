@@ -32,9 +32,11 @@ python main.py
 - **`Agent` returns an `AgentResult`, not a string.** Printing it renders the final text, which is
   why `print(agent(prompt))` looks like it returns a string. The object also carries
   `stop_reason`, the raw `message`, and `metrics`.
-- **`stop_reason` is how the loop ended**, and `end_turn` means the model finished on its own. It
-  is one of twelve values, and the other eleven are how you detect a run that ended for a reason
-  you care about. See [`09-limits/02-stop-reasons`](../../09-limits/02-stop-reasons/).
+- **A returned `AgentResult` does not mean a finished task.** `stop_reason` is how the loop ended,
+  and `end_turn` means the model finished on its own. It is one of twelve values, and the other
+  eleven mean the run stopped for a reason you probably care about: a budget ran out, a person
+  cancelled it, content was blocked. Nothing raises for most of them, so code that reads the text
+  without checking the field will treat a truncated run as a completed one.
 - **The `@tool` docstring is the tool description the model sees.** Argument descriptions come from
   the `Args:` block, so a vague docstring produces a tool the model calls at the wrong times.
 - **`metrics.tool_metrics` proves the tool ran.** Without it you cannot tell whether the model
@@ -53,6 +55,6 @@ python main.py
 ## See also
 
 - [`01-agent/03-structured-output`](../03-structured-output/) to get a typed object back instead of prose.
-- [`09-limits/01-execution-limits`](../../09-limits/01-execution-limits/) to cap what a single invocation may spend.
+- [`09-limits/01-stop-a-runaway-agent`](../../09-limits/01-stop-a-runaway-agent/) to cap what a single invocation may spend.
 
 Verified against strands-agents 1.53.0 on 2026-08-26
