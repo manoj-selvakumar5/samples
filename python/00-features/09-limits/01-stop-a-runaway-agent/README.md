@@ -15,7 +15,7 @@ Nothing raises when a cap trips: the loop stops between iterations and names the
 
 | Symbol | Where it comes from |
 |--------|---------------------|
-| `Limits` | `strands.types.Limits`, a `TypedDict`, so a plain dict works and this script passes one |
+| `Limits` | `strands.types.Limits`, a `TypedDict`, so the script annotates with it and passes plain dicts |
 | `limits=` | keyword on `Agent.__call__`, `invoke_async`, and `stream_async` |
 | `result.stop_reason` | names the cap that fired: `limit_turns`, `limit_total_tokens`, or `limit_output_tokens` |
 | `result.metrics.latest_agent_invocation` | the per-call counters the caps compare against |
@@ -39,8 +39,21 @@ Every field is optional, and an omitted field means no limit on that dimension.
 | Field | Bounds | Trips with `stop_reason` |
 |-------|--------|--------------------------|
 | `turns` | Trips through the agent loop | `limit_turns` |
-| `total_tokens` | `usage["totalTokens"]` as the provider reports it | `limit_total_tokens` |
+| `total_tokens` | Input plus output tokens, as `usage["totalTokens"]` | `limit_total_tokens` |
 | `output_tokens` | Model-generated tokens only | `limit_output_tokens` |
+
+## What `stop_reason` tells you
+
+**Reaching a limit is an outcome, not an exception.** Inspect `stop_reason` to decide what your
+application does next.
+
+| `stop_reason` | Meaning | What to do |
+|---------------|---------|------------|
+| `end_turn` | The model chose to finish | Use the text |
+| `limit_turns` | The invocation's turn budget stopped the loop | Land or resume on a larger budget |
+| `limit_total_tokens` | The invocation's token budget stopped the loop | Land or resume on a larger budget |
+| `limit_output_tokens` | The cumulative generated-token budget stopped the loop | Land or resume on a larger budget |
+| `cancelled` | The caller stopped it | Do not retry automatically |
 
 There is no time dimension, which is the first thing most readers come here looking for. A
 wall-clock bound is cancellation, not a limit, and it reports `cancelled` rather than a `limit_*`
@@ -49,7 +62,7 @@ value. See [`02-stop-it-from-outside`](../02-stop-it-from-outside/).
 ## Note the following
 
 - **There is no cap unless you pass one.** An agent invoked without `limits` runs until the model
-  decides it is finished, which for an unfinishable task is never.
+  decides it is finished. When the tools never signal an ending, nothing in the loop supplies one.
 - **The runaway here is a pagination bug, not a bad prompt.** The tool reports a total computed from
   the offset, so the end of the article always stays ahead of the reader. Every response looks like
   ordinary progress. This matters because the usual advice, write a better prompt, does not help:
@@ -59,25 +72,29 @@ value. See [`02-stop-it-from-outside`](../02-stop-it-from-outside/).
   silently accept a truncated one.
 - **After a cap trips, the result has no text.** `AgentResult.message` is the last message in the
   conversation, and on a trip that is the message holding the tool result, not an assistant reply,
-  so `str(result)` is the empty string. The script's free tier spends one small extra budget asking
-  for a summary, which is what turns an empty result into a partial answer.
+  so `str(result)` is the empty string.
+- **Reaching a limit leaves the conversation reinvokable.** Tools requested by the last turn have
+  already completed, so the history never ends on an unanswered tool call and the same agent can be
+  called again. The script's free tier uses this to spend one final turn summarizing what it found,
+  which is what turns an empty result into a partial answer.
+- **A one-turn landing call is not guaranteed to produce text.** A turn is a model call plus any
+  tools it requests, and the cap is only checked before the *next* turn. If the model spends that
+  turn on another tool call instead of answering, the run ends on a tool result again. Give the
+  landing call its own tool-free agent if you need the partial answer to be certain.
 - **The cap belongs to the call, not the agent.** Counters are not cumulative across reuses, so a
   second `agent(...)` starts from zero. That is what makes a tripped run resumable.
 - **Caps are soft.** They are checked at the top of each loop iteration, never mid-call, so the
   iteration that crosses the line still finishes and the run lands past its cap. Treat a cap as a
   circuit breaker, not an accounting guarantee.
 - **Read the per-invocation counters, not the lifetime ones.** The caps compare against
-  `result.metrics.latest_agent_invocation.usage`. `metrics.accumulated_usage` on the same object is
-  the agent's total across every call it has served, so on a reused agent it is a larger number than
-  the one being enforced.
-- **Read `usage["totalTokens"]`, do not recompute it.** The `total_tokens` cap compares against the
-  total the provider reported. When a provider reports cache tokens separately that total is not
-  `inputTokens + outputTokens`, so a hand-rolled sum can disagree with the number actually enforced.
+  `result.metrics.latest_agent_invocation.usage`, and `total_tokens` specifically against its
+  `totalTokens` field. `metrics.accumulated_usage` on the same object is the agent's total across
+  every call it has served, so on a reused agent it is not the number being enforced.
 - **A turn is a trip through the loop, not a model call.** One turn is one model call plus any tools
   it requested, however many of those run in parallel. The script's tools are often called three at
   a time inside a single turn.
-- **Priority on a simultaneous trip is `turns`, then `total_tokens`, then `output_tokens`.** A tier
-  that sets all three, as the script's do, reports whichever bound bit first in that order.
+- **Priority on a simultaneous trip is `turns`, then `total_tokens`, then `output_tokens`.** When a
+  budget sets more than one cap, `stop_reason` names whichever bound bit first in that order.
 - **A malformed cap does raise, before any model call.** Zero, a negative, a float, a string, and
   `True` all raise `TypeError` during validation, so a bad cap costs nothing. Only a *tripped* cap
   is the quiet path.
@@ -102,6 +119,9 @@ value. See [`02-stop-it-from-outside`](../02-stop-it-from-outside/).
   `limits` is a per-call argument rather than agent configuration, so nothing stops you.
 - **Charge the landing call to the caller too**, or absorb it, but decide deliberately: it is a real
   invocation with its own cost.
+- **Combine caps** when one boundary is not enough, for example
+  `limits={"turns": 10, "total_tokens": 50_000, "output_tokens": 5_000}`. The script's tiers each set
+  a single cap so that one example teaches one bound.
 - **Pass `limits` to `stream_async`** as well. The same keyword exists on all three invoke paths.
 
 ## See also
