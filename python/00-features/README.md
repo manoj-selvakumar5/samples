@@ -23,15 +23,15 @@ The agent runs correctly without these. You add them because you do not trust it
 | Area | Leaves |
 |------|--------|
 | [`07-interventions/`](./07-interventions/) | [`01-intervention-basics`](./07-interventions/01-intervention-basics/), [`03-human-in-the-loop`](./07-interventions/03-human-in-the-loop/) |
-| [`09-limits/`](./09-limits/) | [`01-stop-a-runaway-agent`](./09-limits/01-stop-a-runaway-agent/) |
-| [`09-limits-b/`](./09-limits-b/) | [`01-invocation-limits`](./09-limits-b/01-invocation-limits/), [`02-cancellation`](./09-limits-b/02-cancellation/) — experimental second cut, one of the two areas will be kept |
+| [`09-limits/`](./09-limits/) | [`01-stop-a-runaway-agent`](./09-limits/01-stop-a-runaway-agent/), [`02-stop-it-from-outside`](./09-limits/02-stop-it-from-outside/) |
 
 ### I want to restrict...
 
 | ...what? | Use | Where |
 |----------|-----|-------|
 | **whether** a step runs at all | `InterventionHandler` returning `Proceed`, `Deny`, `Guide`, `Confirm`, or `Transform` | [`07-interventions/`](./07-interventions/) |
-| **how much** it does, or **how long** | `Limits` for turns and tokens, `cancel_signal` for time | [`09-limits/01-stop-a-runaway-agent`](./09-limits/01-stop-a-runaway-agent/) |
+| **how much** it does | `Limits` for turns and tokens | [`09-limits/01-stop-a-runaway-agent`](./09-limits/01-stop-a-runaway-agent/) |
+| **how long** it runs | `cancel_signal` or `Agent.cancel()` | [`09-limits/02-stop-it-from-outside`](./09-limits/02-stop-it-from-outside/) |
 
 ## Getting started
 
