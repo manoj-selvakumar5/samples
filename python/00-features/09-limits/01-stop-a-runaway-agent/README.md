@@ -15,7 +15,7 @@ Nothing raises when a cap trips: the loop stops between iterations and names the
 
 | Symbol | Where it comes from |
 |--------|---------------------|
-| `Limits` | `strands.types.Limits`, a `TypedDict`, so the script annotates with it and passes plain dicts |
+| `Limits` | `strands.types.Limits`, a `TypedDict`, so a plain dict works and this script passes one |
 | `limits=` | keyword on `Agent.__call__`, `invoke_async`, and `stream_async` |
 | `result.stop_reason` | names the cap that fired: `limit_turns`, `limit_total_tokens`, or `limit_output_tokens` |
 | `result.metrics.latest_agent_invocation` | the per-call counters the caps compare against |

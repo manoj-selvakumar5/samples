@@ -18,8 +18,6 @@ Run:
 import base64
 
 from strands import Agent, tool
-from strands.agent import AgentResult
-from strands.types import Limits
 
 ARTICLES = [
     "KB-101: A duplicate charge appears when an invoice is retried after a declined card.",
@@ -35,6 +33,9 @@ TIERS = {
     "free": {"turns": 3},
     "pro": {"turns": 10},
 }
+
+# Token budget for the runaway, which has no ending of its own.
+RUNAWAY_BUDGET = 4000
 
 
 def _cursor(index: int) -> str:
@@ -107,66 +108,49 @@ QUESTION = (
 )
 
 
-def spent(result: AgentResult) -> str:
-    """Format the budget counters this invocation used."""
+def main() -> None:
+    print("=== A loop with no natural ending ===\n")
+    agent = Agent(system_prompt=THOROUGH, tools=[read_article], callback_handler=None)
+    # A token cap rather than a turn cap, because what a runaway costs is spend.
+    result = agent(READ_TASK, limits={"total_tokens": RUNAWAY_BUDGET})
+
     # The caps compare against these per-invocation counters, not
     # `metrics.accumulated_usage`, which is the agent's lifetime total.
-    invocation = result.metrics.latest_agent_invocation
-    return f"{len(invocation.cycles)} turns, {invocation.usage['totalTokens']} tokens"
-
-
-def report(result: AgentResult) -> None:
-    """Print how the invocation ended and what it spent."""
+    used = result.metrics.latest_agent_invocation
+    spent_tokens = used.usage["totalTokens"]
     print(f"  stop_reason : {result.stop_reason}")
-    print(f"  spent       : {spent(result)}")
+    print(f"  spent       : {len(used.cycles)} turns, {spent_tokens} tokens")
     # After a limit fires the last message is a tool result, not an assistant
     # reply, so this renders as an empty string.
     print(f"  text        : {str(result)[:48]!r}\n")
 
-
-def summarize_incident(budget: Limits) -> AgentResult:
-    """Summarize the March billing incident from the knowledge base article."""
-    agent = Agent(system_prompt=THOROUGH, tools=[read_article], callback_handler=None)
-    return agent(READ_TASK, limits=budget)
-
-
-def answer(question: str, tier: str) -> dict:
-    """Answer a support question within one caller's budget.
-
-    Returns a result the caller can branch on: reaching a limit is an ordinary
-    outcome, not an error.
-    """
-    agent = Agent(system_prompt=SUPPORT, tools=[search_kb], callback_handler=None)
-    result = agent(question, limits=TIERS[tier])
-
-    if result.stop_reason == "end_turn":
-        return {"answer": str(result), "complete": True, "stopped_by": result.stop_reason}
-
-    # Tools from the last turn have already completed, so the history is valid
-    # and the agent can be invoked again. One more turn, and no more searching.
-    print("  out of budget, asking for what it has so far")
-    landing = agent(
-        "Stop searching. Answer from what you have found so far.",
-        limits={"turns": 1, "output_tokens": 400},
-    )
-    return {"answer": str(landing), "complete": False, "stopped_by": result.stop_reason}
-
-
-def main() -> None:
-    print("=== A loop with no natural ending ===\n")
-    # A token cap rather than a turn cap, because what a runaway costs is spend.
-    report(summarize_incident({"total_tokens": 4000}))
+    if spent_tokens > RUNAWAY_BUDGET:
+        over = spent_tokens - RUNAWAY_BUDGET
+        print(f"  It overshot the {RUNAWAY_BUDGET} cap by {over} tokens: caps are checked")
+        print("  between turns, so the turn that crossed the line still ran.")
     print("  The agent stopped because the budget ran out, not because the")
     print("  document ended. No wording of the prompt supplies that ending.\n")
 
     print("=== The same question on two callers' budgets ===\n")
-    for tier in ("free", "pro"):
-        print(f"  {tier} tier, limits={TIERS[tier]}")
-        outcome = answer(QUESTION, tier)
-        print(f"  stopped_by  : {outcome['stopped_by']}")
-        print(f"  complete    : {outcome['complete']}")
-        label = "answer" if outcome["complete"] else "partial"
-        print(f"  {label:11} : {outcome['answer'][:180]}\n")
+    for tier, budget in TIERS.items():
+        print(f"  {tier} tier, limits={budget}")
+        agent = Agent(system_prompt=SUPPORT, tools=[search_kb], callback_handler=None)
+        result = agent(QUESTION, limits=budget)
+        stopped_by = result.stop_reason
+
+        if stopped_by != "end_turn":
+            # Tools from the last turn have already completed, so the history is
+            # valid and the agent can be invoked again. One more turn, no searching.
+            print("  out of budget, asking for what it has so far")
+            result = agent(
+                "Stop searching. Answer from what you have found so far.",
+                limits={"turns": 1, "output_tokens": 400},
+            )
+
+        label = "answer" if stopped_by == "end_turn" else "partial"
+        print(f"  stopped_by  : {stopped_by}")
+        print(f"  {label:11} : {str(result)[:180]}\n")
+
     print("  Same question, same agent, same tools. The only difference is what")
     print("  the caller was entitled to spend.\n")
 
