@@ -35,5 +35,3 @@ Recorded so the boundary holds, since several of these were once planned as leav
 | The `StopReason` survey | `stop_reason` reports how a run ended; it governs nothing. Only four of its twelve values come from limits | Each area teaches the endings it produces; the "check the field" lesson lives in [`01-agent/01-first-agent`](../01-agent/01-first-agent/) |
 | `MaxTokensReachedException` | The provider's output ceiling is model configuration | A model-config leaf |
 | Budgeting a web-search research agent | The lesson is real, but it needs an explicit model, a region, and the `strands-agents[openai]` extra, and no leaf outside a provider-specific area configures a model | A provider-specific area, once one exists |
-
-Verified against strands-agents 1.54.0 on 2026-09-11

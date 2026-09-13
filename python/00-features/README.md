@@ -53,9 +53,10 @@ outside a provider-specific area configures a model, so every example runs on th
 - **Numbers are assigned once and not reused.** A new area takes its reserved slot rather than
   pushing its neighbours along, so a published path never changes meaning.
 - **Each leaf teaches one concept.**
-- **Each leaf README lists the symbols it teaches.**
-- **Every leaf is verified by running it end to end.** The `Verified against` line at the bottom of
-  a leaf README records the SDK version of that last real run.
+- **Each leaf README follows the same shape.** The problem first, then what you will learn, how the
+  mechanism works, prerequisites and setup, running the tutorial, and the semantics in reference
+  form. Symbols are named in the prose that uses them rather than listed in a table.
+- **Every leaf is verified by running it end to end.**
 - **Requirements track the latest SDK**, not a frozen version. Each leaf declares a floor it is
   known to need and an upper bound at the next major version, so `pip install -r requirements.txt`
   gives you current Strands Agents rather than a stale pin.
