@@ -68,7 +68,10 @@ Before turn 5:  3,700 tokens
                   turn 5 runs
                      │
                      ▼
-            next iteration begins
+                 4,350 tokens
+                     │
+                     ▼
+             next iteration begins
                      │
                      ▼
               limit is detected
@@ -176,9 +179,9 @@ Output varies because model behavior and token usage are not deterministic. An a
   partial     : ...
 ```
 
-The `text` field is empty because the last message after a trip is a tool result rather than an
-assistant reply. The work so far is in `agent.messages`, which is what the follow-up invocation
-summarizes.
+**In this example**, `text` is empty because the limit is detected after a tool-producing turn, so
+the last message is a tool result rather than a final assistant answer. The work collected so far
+remains in the conversation history, which the follow-up invocation can use.
 
 ---
 
@@ -225,8 +228,8 @@ any tool execution requested by that model call
 For example, if one model response requests three tools in parallel, those tool calls are still part
 of the same turn.
 
-A turn limit therefore bounds how many times the agent can cycle through model reasoning and tool
-execution.
+A turn limit therefore bounds how many times the agent can cycle through a model call and any tools
+that follow.
 
 ### Token limits are cumulative
 
@@ -284,21 +287,13 @@ elif result.stop_reason.startswith("limit_"):
     ...
 ```
 
-Common outcomes in this tutorial are:
+Relevant `stop_reason` values include:
 
 | `stop_reason`                                              | Meaning                                 |
 |:-----------------------------------------------------------|:----------------------------------------|
 | `end_turn`                                                 | The model finished normally             |
 | `limit_turns`, `limit_total_tokens`, `limit_output_tokens` | The matching budget was reached         |
 | `cancelled`                                                | The invocation was cancelled externally |
-
-If several limits are reached at the same boundary, Strands reports them in this priority order:
-
-```text
-turns
-total_tokens
-output_tokens
-```
 
 ### Why the conversation can continue
 
@@ -394,8 +389,8 @@ limits={
 Neither runaway reasoning cycles nor unexpected token growth can then carry an invocation on
 indefinitely.
 
-Monitor how often healthy invocations reach their limits. A budget that routinely stops legitimate
-work is too small.
+Monitor how often normal invocations reach their limits. If a budget routinely stops legitimate
+work, consider increasing it.
 
 ---
 
