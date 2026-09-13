@@ -1,5 +1,3 @@
-Part II - Control the loop
-
 # Pause an agent for human approval before a sensitive tool runs
 
 ## Overview
@@ -30,6 +28,115 @@ answer from stdin, which is its own choice and not something the SDK does for yo
 - how to answer the pause the agent hands back, and resume the run with that answer
 - why the default is a pause rather than a prompt, and when to prompt inline instead
 - what the model is told when a person rejects a call
+
+---
+
+## Prerequisites and setup
+
+Before starting, make sure you have:
+
+- Python 3.10 or later
+- AWS credentials configured
+- access to a supported model in Amazon Bedrock
+- an interactive terminal, because this script reads the approval from stdin
+
+Install the dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+## Run the tutorial
+
+```bash
+python main.py
+```
+
+The script runs one scenario.
+
+### 1. Gate a funds transfer behind human approval
+
+The handler is constructed with a single allow-listed tool and no `ask` argument, which is what
+makes it pause rather than prompt:
+
+```python
+hitl = HumanInTheLoop(allowed_tools=["check_balance"])
+
+agent = Agent(
+    system_prompt=(
+        "You are a banking assistant. Use the tools available. "
+        "Answer in one or two plain sentences, with no markdown formatting."
+    ),
+    tools=[check_balance, transfer_funds],
+    interventions=[hitl],
+)
+```
+
+The prompt asks for one ungated action and one gated one:
+
+```python
+prompt = "Check the balance of account ACC-1 and then transfer 500 to account ACC-2."
+```
+
+When the run pauses, answer on stdin. `y` or `yes` approves the transfer, case-insensitively and
+ignoring surrounding whitespace. Anything else rejects it, `n` included.
+
+<details>
+<summary><b>Expected output</b></summary>
+
+Output varies because the model's wording and its choice of how many tools to request per turn are
+not deterministic. An abbreviated run, approving the transfer:
+
+```text
+Prompt: Check the balance of account ACC-1 and then transfer 500 to account ACC-2.
+
+  [tool] check_balance('ACC-1') ran
+
+  [paused] stop_reason=interrupt, awaiting 1
+  [interrupt] Approve "transfer_funds"?
+  Input: {"account": "ACC-1", "amount": 500, "destination": "ACC-2"}
+  approve? (y/n) y
+  [tool] transfer_funds('ACC-1', 500.0, 'ACC-2') ran
+
+
+--- Result ---
+stop_reason : end_turn
+text        : <the assistant's one or two sentence answer>
+
+
+--- agent.messages ---
+[0] user
+      text       : Check the balance of account ACC-1 and then transfer 500 to account ACC-2.
+[1] assistant
+      toolUse    : check_balance {"account": "ACC-1"}
+[2] user
+      toolResult : success
+                   ACC-1 balance is 8,400.00 USD
+[3] assistant
+      toolUse    : transfer_funds {"account": "ACC-1", "amount": 500, "destination": "ACC-2"}
+[4] user
+      toolResult : success
+                   transferred 500.0 from ACC-1 to ACC-2
+[5] assistant
+      text       : <the assistant's one or two sentence answer>
+```
+
+Three things in that output are worth reading twice.
+
+`awaiting 1` counts only the gated call. `check_balance` is allow-listed, so it ran without asking
+and is already a finished `toolResult` in the history by the time the pause happens. Resuming does
+not re-run it.
+
+The final `stop_reason` is `end_turn`, not `interrupt`. `interrupt` was the stop reason of the
+paused call; the resumed call ran to completion and reported its own.
+
+**In this example** the argument appears twice in two shapes: `"amount": 500` in the JSON the model
+produced, and `500.0` in the tool's own output. The `transfer_funds` parameter is annotated `float`,
+so the integer the model sent arrives in the function as a float.
+
+</details>
 
 ---
 
@@ -90,115 +197,10 @@ One model turn requesting three tools
 
 ---
 
-## Prerequisites and setup
-
-Before starting, make sure you have:
-
-- Python 3.10 or later
-- AWS credentials configured
-- access to a supported model in Amazon Bedrock
-- an interactive terminal, because this script reads the approval from stdin
-
-Install the dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
----
-
-## Run the tutorial
-
-```bash
-python main.py
-```
-
-The script runs one scenario.
-
-### 1. Gate a funds transfer behind human approval
-
-The handler is constructed with a single allow-listed tool and no `ask` argument, which is what
-makes it pause rather than prompt:
-
-```python
-hitl = HumanInTheLoop(allowed_tools=["check_balance"])
-
-agent = Agent(
-    system_prompt=(
-        "You are a banking assistant. Use the tools available. "
-        "Answer in one or two plain sentences, with no markdown formatting."
-    ),
-    tools=[check_balance, transfer_funds],
-    interventions=[hitl],
-)
-```
-
-The prompt asks for one ungated action and one gated one:
-
-```python
-prompt = "Check the balance of account ACC-1 and then transfer 500 to account ACC-2."
-```
-
-When the run pauses, answer on stdin. `y` or `yes` approves the transfer, case-insensitively and
-ignoring surrounding whitespace. Anything else rejects it, `n` included.
-
-### Expected output
-
-Output varies because the model's wording and its choice of how many tools to request per turn are
-not deterministic. An abbreviated run, approving the transfer:
-
-```text
-Prompt: Check the balance of account ACC-1 and then transfer 500 to account ACC-2.
-
-  [tool] check_balance('ACC-1') ran
-
-  [paused] stop_reason=interrupt, awaiting 1
-  [interrupt] Approve "transfer_funds"?
-  Input: {"account": "ACC-1", "amount": 500, "destination": "ACC-2"}
-  approve? (y/n) y
-  [tool] transfer_funds('ACC-1', 500.0, 'ACC-2') ran
-
-
---- Result ---
-stop_reason : end_turn
-text        : <the assistant's one or two sentence answer>
-
-
---- agent.messages ---
-[0] user
-      text       : Check the balance of account ACC-1 and then transfer 500 to account ACC-2.
-[1] assistant
-      toolUse    : check_balance {"account": "ACC-1"}
-[2] user
-      toolResult : success
-                   ACC-1 balance is 8,400.00 USD
-[3] assistant
-      toolUse    : transfer_funds {"account": "ACC-1", "amount": 500, "destination": "ACC-2"}
-[4] user
-      toolResult : success
-                   transferred 500.0 from ACC-1 to ACC-2
-[5] assistant
-      text       : <the assistant's one or two sentence answer>
-```
-
-Three things in that output are worth reading twice.
-
-`awaiting 1` counts only the gated call. `check_balance` is allow-listed, so it ran without asking
-and is already a finished `toolResult` in the history by the time the pause happens. Resuming does
-not re-run it.
-
-The final `stop_reason` is `end_turn`, not `interrupt`. `interrupt` was the stop reason of the
-paused call; the resumed call ran to completion and reported its own.
-
-**In this example** the argument appears twice in two shapes: `"amount": 500` in the JSON the model
-produced, and `500.0` in the tool's own output. The `transfer_funds` parameter is annotated `float`,
-so the integer the model sent arrives in the function as a float.
-
----
-
 ## Understanding the approval pause
 
-### Resuming from a pause
+<details>
+<summary><b>Resuming from a pause</b></summary>
 
 The pause and the resume are the whole API:
 
@@ -226,7 +228,10 @@ exists because a run can pause more than once: answering the first gated call le
 on, and the next gated call stops it again. Keep going until `stop_reason` is no longer
 `"interrupt"`.
 
-### What an interrupt carries
+</details>
+
+<details>
+<summary><b>What an interrupt carries</b></summary>
 
 Each entry in `result.interrupts` is a `strands.interrupt.Interrupt`:
 
@@ -248,7 +253,10 @@ Approve "transfer_funds"?
 That distinction matters. Approving `transfer_funds` in the abstract is meaningless; approving it
 for 500 USD to ACC-2 is a real decision.
 
-### Which tools require approval
+</details>
+
+<details>
+<summary><b>Which tools require approval</b></summary>
 
 By default every tool requires approval, and `allowed_tools` is the allow-list of tools that run
 without asking. Approval is therefore opt-out rather than opt-in. That is the safe default: a tool
@@ -266,7 +274,10 @@ So `allowed_tools=["*", "!transfer_funds"]` gates only the transfer. That is use
 list grows past the point where naming every safe tool is practical, at the cost of the safe default
 above.
 
-### What the model is told when you reject
+</details>
+
+<details>
+<summary><b>What the model is told when you reject</b></summary>
 
 Rejection is not an error. The loop continues and `stop_reason` is still `end_turn`, so the agent
 reports back rather than crashing.
@@ -283,7 +294,10 @@ You cannot reword that text. `HumanInTheLoop` builds it internally from the tool
 Because it reads as a question, the model tends to hedge about a failed confirmation step rather
 than say that a person declined.
 
-### Narrowing or widening what gets asked
+</details>
+
+<details>
+<summary><b>Narrowing or widening what gets asked</b></summary>
 
 Three more keyword arguments change what gets asked and what counts as a yes.
 
@@ -304,7 +318,10 @@ its arguments, and alongside a `classifier` it also switches off argument-level 
 that name. Broader than it first sounds. A negated tool such as `"!transfer_funds"` can never be
 trusted.
 
-### One handler per agent
+</details>
+
+<details>
+<summary><b>One handler per agent</b></summary>
 
 `name` is a fixed class attribute on `HumanInTheLoop`, and intervention handler names must be unique
 within an agent, so registering a second instance raises:
@@ -315,7 +332,10 @@ ValueError: Duplicate intervention handler name: 'strands:human-in-the-loop'
 
 Layering two approval policies therefore means subclassing to rename.
 
-### Resuming after the process has gone
+</details>
+
+<details>
+<summary><b>Resuming after the process has gone</b></summary>
 
 Resuming inside the same process needs nothing extra. The pending interrupt lives on the agent, and
 the resume call in this script is the very next thing that happens.
@@ -325,9 +345,14 @@ once a human is involved: the approval may arrive minutes later, possibly at a d
 Strands serializes pending interrupt state along with the rest of the session, so a restored agent
 resumes at the same pause.
 
+</details>
+
 ---
 
 ## Choosing where the approval comes from
+
+<details>
+<summary><b>The three ask modes, and which one works when the approver is elsewhere</b></summary>
 
 The `ask` argument decides this, and it is the one real design choice the handler asks you to make.
 
@@ -351,9 +376,14 @@ Returning `None` is treated as a denial.
 This tutorial takes the default and answers from stdin in its own code, which is deliberate: it
 exercises the mode a real approval workflow needs, using the simplest possible source of answers.
 
+</details>
+
 ---
 
 ## Human-in-the-loop versus writing your own handler
+
+<details>
+<summary><b>When to write the handler yourself instead</b></summary>
 
 `HumanInTheLoop` is the human-approval case of the broader interventions feature. Underneath, it is
 built on the same `Confirm` action a hand-written handler returns, and `Confirm` is valid only on
@@ -367,6 +397,8 @@ that comes with the packaged handler.
 
 Reach for `HumanInTheLoop` when the policy is "ask a person before these tools run" and you would
 rather configure that than build it.
+
+</details>
 
 ---
 

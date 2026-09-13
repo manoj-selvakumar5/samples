@@ -1,5 +1,3 @@
-Part I - Build the agent
-
 # Extract a typed object from free text with structured output
 
 ## Overview
@@ -28,53 +26,6 @@ single invocation. This tutorial sets it on the agent.
 - how field descriptions and the class docstring become the instructions the model receives
 - why a successful structured run reports `stop_reason` as `tool_use` rather than `end_turn`
 - why validation failure and extraction failure are different outcomes, and which one raises
-
----
-
-## How structured output works
-
-The Pydantic model is not inspected after the fact. It travels with the request:
-
-```text
-Incident (Pydantic model)
-      │
-      │ field names, types, descriptions, and the class docstring
-      ▼
-Model call  ◄────  REPORT (free text)
-      │
-      │ the model supplies a value for every field
-      ▼
-Validate against Incident
-      │
-      ├── a field does not fit ──► errors go back to the model,
-      │                            which gets another attempt
-      ▼
-AgentResult.structured_output
-      = Incident(events=[...], resolved=True)
-```
-
-The important detail is **where validation sits**: before your code runs, not after. By the time an
-object reaches `structured_output` it has already been constructed as an `Incident`, so there is
-nothing to parse and nothing to check by hand.
-
-What the schema does not pin down is size. A list field says what each item must look like, not how
-many items there are:
-
-```text
-one paragraph of prose
-          │
-          ▼
-events: list[Event]
-          │
-          ├── Event(time="09:12", detail=...)
-          ├── Event(time="09:20", detail=...)
-          ├── Event(time="09:41", detail=...)
-          └── Event(time="09:50", detail=...)
-```
-
-The model decides how many events the report contains. That is why this tutorial nests `Event`
-inside `Incident` rather than declaring four scalar timestamp fields: a flat model with a known set
-of fields cannot show that behavior.
 
 ---
 
@@ -143,7 +94,8 @@ incident = result.structured_output
 widest timestamp and print an aligned table. Against a paragraph of prose that would have meant
 writing a parser first. This is what structured output buys that a well-worded prompt does not.
 
-### Expected output
+<details>
+<summary><b>Expected output</b></summary>
 
 Output varies because the model chooses the wording of the free-text fields. An abbreviated run:
 
@@ -169,11 +121,61 @@ segmentation legible.
 `resolved` is inferred rather than copied. The report never says the incident was resolved. "Back to
 normal by 09:50" implies it, and the field description tells the model what the flag means.
 
+</details>
+
+---
+
+## How structured output works
+
+The Pydantic model is not inspected after the fact. It travels with the request:
+
+```text
+Incident (Pydantic model)
+      │
+      │ field names, types, descriptions, and the class docstring
+      ▼
+Model call  ◄────  REPORT (free text)
+      │
+      │ the model supplies a value for every field
+      ▼
+Validate against Incident
+      │
+      ├── a field does not fit ──► errors go back to the model,
+      │                            which gets another attempt
+      ▼
+AgentResult.structured_output
+      = Incident(events=[...], resolved=True)
+```
+
+The important detail is **where validation sits**: before your code runs, not after. By the time an
+object reaches `structured_output` it has already been constructed as an `Incident`, so there is
+nothing to parse and nothing to check by hand.
+
+What the schema does not pin down is size. A list field says what each item must look like, not how
+many items there are:
+
+```text
+one paragraph of prose
+          │
+          ▼
+events: list[Event]
+          │
+          ├── Event(time="09:12", detail=...)
+          ├── Event(time="09:20", detail=...)
+          ├── Event(time="09:41", detail=...)
+          └── Event(time="09:50", detail=...)
+```
+
+The model decides how many events the report contains. That is why this tutorial nests `Event`
+inside `Incident` rather than declaring four scalar timestamp fields: a flat model with a known set
+of fields cannot show that behavior.
+
 ---
 
 ## Understanding structured output
 
-### What the model is asked to produce
+<details>
+<summary><b>What the model is asked to produce</b></summary>
 
 Three things in the class reach the model:
 
@@ -189,7 +191,10 @@ reformatted.
 `Incident.model_fields` holds those descriptions at runtime if you want to see exactly what the
 model was told.
 
-### What comes back
+</details>
+
+<details>
+<summary><b>What comes back</b></summary>
 
 `AgentResult.structured_output` holds a validated instance, or `None`:
 
@@ -209,7 +214,10 @@ object has produced an `Incident`. Nested models are real objects too: every ite
 `str(result)` and `print(result)` return the object as JSON rather than the message text whenever
 structured output is present.
 
-### Where to set the output model
+</details>
+
+<details>
+<summary><b>Where to set the output model</b></summary>
 
 On the `Agent`, as this tutorial does, where it applies to every call. Or on a single call, where it
 overrides the agent's setting for that call only and leaves the agent unchanged:
@@ -228,7 +236,10 @@ for the object again when a response came back as prose instead, which is `"You 
 previous response as structured output."` Use it to steer extraction without touching the system
 prompt.
 
-### Why a successful run reports `tool_use`
+</details>
+
+<details>
+<summary><b>Why a successful run reports `tool_use`</b></summary>
 
 The model returns the object by requesting it, so the run reports:
 
@@ -240,7 +251,10 @@ A run that succeeded therefore carries the same stop reason as one that paused t
 that treats `end_turn` as the only success value will misclassify every structured response. Branch
 on `structured_output` being present instead.
 
-### When validation fails
+</details>
+
+<details>
+<summary><b>When validation fails</b></summary>
 
 A Pydantic `ValidationError` does not reach your code. The failing fields are named back to the
 model, which gets another attempt at them.
@@ -249,7 +263,10 @@ The practical consequence is that a schema the model struggles to satisfy costs 
 than raising. That matters when you are also setting `limits`, because those turns spend the same
 budget as useful work.
 
-### When no object comes back
+</details>
+
+<details>
+<summary><b>When no object comes back</b></summary>
 
 Two outcomes are worth telling apart, and only one of them raises.
 
@@ -269,9 +286,14 @@ for example, nothing is raised and `structured_output` is left as `None`. That i
 checking for `None` before using the result earns its place. See
 [09-limits/01-stop-a-runaway-agent](../../09-limits/01-stop-a-runaway-agent/).
 
+</details>
+
 ---
 
 ## Designing the output model
+
+<details>
+<summary><b>Where a constraint belongs, and how wide to make the schema</b></summary>
 
 Prose in a `description` is guidance. A type is enforcement. When a constraint actually matters,
 express it in the type rather than in words:
@@ -293,9 +315,14 @@ between runs of the same input, so assert on shape in tests and treat the prose 
 Keep the schema no wider than what the caller needs. Every field is one more thing the model has to
 get right, and a field with no grounding in the input is a field it will guess at.
 
+</details>
+
 ---
 
 ## Structured output versus asking for JSON in the prompt
+
+<details>
+<summary><b>What you are holding once the response arrives</b></summary>
 
 A prompt can ask for JSON, and a capable model will often produce something close to it. The
 difference is what you are holding afterwards.
@@ -308,6 +335,8 @@ lines later.
 
 Structured output also composes with the rest of an agent run. The declared object is what ends the
 loop, so the agent can call ordinary tools first and still return an `Incident` at the end.
+
+</details>
 
 ---
 

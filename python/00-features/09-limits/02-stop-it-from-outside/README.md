@@ -1,5 +1,3 @@
-Part II - Control the loop
-
 # Cancel a running agent invocation from outside the loop
 
 ## Overview
@@ -30,61 +28,6 @@ it was doing when the stop arrived.
 - how to cancel the invocation in flight with `Agent.cancel()` from another thread
 - why a cancelled run does not stop immediately, and where it does stop
 - how to let a slow tool give up early through `ToolContext.cancel_signal`
-
----
-
-## How cancellation reaches the agent loop
-
-Both mechanisms set one signal, and the loop reads it at four fixed points:
-
-```text
-agent.cancel() ──┐
-                 ├──► the invocation's cancellation signal
-cancel_signal ───┘             │
-                               │ read at four checkpoints, between units
-                               │ of work rather than inside one
-                               ▼
-                      Start iteration
-                            │
-                            ▼
-                      Call the model ──────► checkpoint 1, between stream chunks
-                            │                       │
-                            ▼                       │
-                      Before tools start ──► checkpoint 2
-                            │                       │
-                            ▼                       │
-                      Tools execute ───────► checkpoint 3, an MCP call in flight
-                            │                       │
-                            ▼                       │
-                      Tools returned ──────► checkpoint 4, before the next model call
-                            │                       │
-                            │                       ▼
-                            │              return AgentResult
-                            │              with stop_reason "cancelled"
-                            ▼
-                      next iteration
-```
-
-The important detail is **where the signal is read**: between units of work, never inside one. The
-loop is not preempted. It finishes whatever unit it is in, and then looks.
-
-For an ordinary Python tool, that unit is the whole tool call. Once a tool has started, cancellation
-is **cooperative**: only the tool itself can react mid-execution. A tool that never looks runs to
-completion, and the loop resumes cancellation handling after it returns.
-
-So the slowest tool in flight sets the floor on how quickly a run can stop, unless the tool
-participates:
-
-```text
-signal fires
-     │
-     ├── tool that ignores it:  [ ---- 1.5s of work ---- ] returns ──► run stops
-     │
-     └── tool that polls it:    [ step ] gives up ──► run stops
-```
-
-Both paths stop at the same checkpoint and both report `cancelled`. The only thing that moves is how
-long the tool made the loop wait, which is usually the whole reason a Stop button feels broken.
 
 ---
 
@@ -180,7 +123,8 @@ for _ in range(int(FETCH_SECONDS / STEP_SECONDS)):
 The total work is the same 1.5 seconds, split into `STEP_SECONDS = 0.1` slices. The script then
 prints both delays next to each other.
 
-### Expected output
+<details>
+<summary><b>Expected output</b></summary>
 
 Output varies because model behavior and thread timing are not deterministic. An abbreviated run:
 
@@ -230,11 +174,69 @@ much sooner.
 answers from the first two, the signal never fires, the script prints `<stop_reason>, but the run
 ended before the signal` instead of a delay, and the comparison lines are skipped.
 
+</details>
+
+---
+
+## How cancellation reaches the agent loop
+
+Both mechanisms set one signal, and the loop reads it at four fixed points:
+
+```text
+agent.cancel() ──┐
+                 ├──► the invocation's cancellation signal
+cancel_signal ───┘             │
+                               │ read at four checkpoints, between units
+                               │ of work rather than inside one
+                               ▼
+                      Start iteration
+                            │
+                            ▼
+                      Call the model ──────► checkpoint 1, between stream chunks
+                            │                       │
+                            ▼                       │
+                      Before tools start ──► checkpoint 2
+                            │                       │
+                            ▼                       │
+                      Tools execute ───────► checkpoint 3, an MCP call in flight
+                            │                       │
+                            ▼                       │
+                      Tools returned ──────► checkpoint 4, before the next model call
+                            │                       │
+                            │                       ▼
+                            │              return AgentResult
+                            │              with stop_reason "cancelled"
+                            ▼
+                      next iteration
+```
+
+The important detail is **where the signal is read**: between units of work, never inside one. The
+loop is not preempted. It finishes whatever unit it is in, and then looks.
+
+For an ordinary Python tool, that unit is the whole tool call. Once a tool has started, cancellation
+is **cooperative**: only the tool itself can react mid-execution. A tool that never looks runs to
+completion, and the loop resumes cancellation handling after it returns.
+
+So the slowest tool in flight sets the floor on how quickly a run can stop, unless the tool
+participates:
+
+```text
+signal fires
+     │
+     ├── tool that ignores it:  [ ---- 1.5s of work ---- ] returns ──► run stops
+     │
+     └── tool that polls it:    [ step ] gives up ──► run stops
+```
+
+Both paths stop at the same checkpoint and both report `cancelled`. The only thing that moves is how
+long the tool made the loop wait, which is usually the whole reason a Stop button feels broken.
+
 ---
 
 ## Understanding cancellation
 
-### The two ways to cancel
+<details>
+<summary><b>The two ways to cancel</b></summary>
 
 `cancel_signal` takes a `threading.Event` the caller owns, and is available with `__call__`,
 `invoke_async`, and `stream_async`.
@@ -245,7 +247,10 @@ several threads is fine, and it aims at whichever invocation is currently runnin
 The agent watches both, so either one cancels independently of the other. There is no separate
 "cancellable" mode to enable on the `Agent`.
 
-### Where the loop checks
+</details>
+
+<details>
+<summary><b>Where the loop checks</b></summary>
 
 | Checkpoint                                  | What happens there                                               |
 |:--------------------------------------------|:-----------------------------------------------------------------|
@@ -266,7 +271,10 @@ response at the next chunk boundary, but cannot abort a request that has not ret
 nor a non-streaming call. A provider that ignores the signal still stops at the between-chunks
 checkpoint.
 
-### Letting a tool give up early
+</details>
+
+<details>
+<summary><b>Letting a tool give up early</b></summary>
 
 `@tool(context=True)` places a `ToolContext` in the named parameter, and
 `tool_context.cancel_signal` is the same event the agent is watching. There are two ways to use it:
@@ -283,7 +291,10 @@ cancelling the parent also cancels the delegated agent.
 Cooperating changes the tool, not the loop. The checkpoints are the same, the `stop_reason` is the
 same, and the only difference is how long the loop waited on the tool.
 
-### What a cancelled result carries
+</details>
+
+<details>
+<summary><b>What a cancelled result carries</b></summary>
 
 Cancellation is a normal outcome, not an exception. The call still returns an `AgentResult`:
 
@@ -307,7 +318,10 @@ Neither is an answer to the task, so branch on `stop_reason` rather than on whet
 Usage metrics can be inaccurate when the stop lands mid-stream, because the stream closes before the
 model sends its final metadata event.
 
-### Why the agent stays reusable
+</details>
+
+<details>
+<summary><b>Why the agent stays reusable</b></summary>
 
 A cancelled run is not a broken one. A tool is never interrupted halfway, and skipped tool calls
 still receive error results, so the conversation history is left in a valid state. The same agent
@@ -332,9 +346,14 @@ Two smaller edges of the contract:
   sits inside model streaming. The user turn is still recorded, and one model request may be issued
   and then aborted.
 
+</details>
+
 ---
 
 ## Choosing a cancellation trigger
+
+<details>
+<summary><b>Which trigger fits, and how fast the run can actually give up</b></summary>
 
 | Mechanism        | Use when                                                                               |
 |:-----------------|:---------------------------------------------------------------------------------------|
@@ -351,9 +370,14 @@ block for seconds should either poll the signal or forward it. The polling inter
 worst case you are accepting, and this script's `STEP_SECONDS = 0.1` is tuned to make the difference
 visible rather than to be a recommendation.
 
+</details>
+
 ---
 
 ## Cancellation versus limits
+
+<details>
+<summary><b>Why a budget cannot express a deadline, and how to use both at once</b></summary>
 
 A budget is declared before the run and the loop enforces it alone. Cancellation always needs
 something outside the run to decide when, so what it guarantees is who gets to stop the invocation,
@@ -374,6 +398,8 @@ result = agent(
 ```
 
 For the budget side of this pair, see [01-stop-a-runaway-agent](../01-stop-a-runaway-agent/).
+
+</details>
 
 ---
 

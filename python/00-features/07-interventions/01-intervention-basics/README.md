@@ -1,5 +1,3 @@
-Part II - Control the loop
-
 # Gate and rewrite agent actions with intervention handlers
 
 ## Overview
@@ -28,55 +26,6 @@ that agent rather than to one call.
 - how to rewrite a tool result before the model or the conversation history ever sees it
 - why a blocked tool is a normal outcome rather than an exception
 - how to choose between blocking, steering, and asking
-
----
-
-## How an intervention handler sits in the agent loop
-
-A handler is not a wrapper around your tool functions. It sits in the gaps the agent loop leaves
-between deciding to call a tool and recording what that tool returned:
-
-```text
-Model returns a tool request
-        │
-        ▼
-  before_tool_call ──► Deny, or a Confirm that was rejected
-        │                        │
-        │ Proceed                └──► the tool never executes
-        ▼
-  Tool executes
-        │
-        ▼
-  after_tool_call  ──► Transform(apply=fn) rewrites event.result in place
-        │
-        ▼
-  Tool result appended to agent.messages
-        │
-        ▼
-  Next model call reads it
-```
-
-Both placements carry their weight. `before_tool_call` runs after the model has asked for the tool
-but before any tool code runs, so blocking there means the side effect never happens at all.
-`after_tool_call` runs after the tool returns but before its result is appended to the conversation,
-so rewriting there takes the data out of the history rather than hiding it from the final answer.
-
-Blocking a tool does not raise. The cancellation becomes an ordinary tool result, which the model
-reads and responds to:
-
-```text
-Confirm rejected
-        │
-        ▼
-toolResult status  = "error"
-toolResult content = "CONFIRMATION_FAILED: <your prompt>"
-        │
-        ▼
-Model reads the refusal and finishes its turn
-        │
-        ▼
-stop_reason = "end_turn"
-```
 
 ---
 
@@ -153,7 +102,8 @@ def redact_emails(event: AfterToolCallEvent) -> None:
             block["text"] = EMAIL.sub("[redacted]", block["text"])
 ```
 
-### Expected output
+<details>
+<summary><b>Expected output</b></summary>
 
 Output varies because the model's wording is not deterministic. An abbreviated run, rejecting the
 deletion:
@@ -205,11 +155,63 @@ come from the SDK's default callback handler streaming the model's output, not f
 `print` calls. The typed `n` appears on the same line as the `(y/n)` prompt because `input()` writes
 its prompt without a trailing newline.
 
+</details>
+
+---
+
+## How an intervention handler sits in the agent loop
+
+A handler is not a wrapper around your tool functions. It sits in the gaps the agent loop leaves
+between deciding to call a tool and recording what that tool returned:
+
+```text
+Model returns a tool request
+        │
+        ▼
+  before_tool_call ──► Deny, or a Confirm that was rejected
+        │                        │
+        │ Proceed                └──► the tool never executes
+        ▼
+  Tool executes
+        │
+        ▼
+  after_tool_call  ──► Transform(apply=fn) rewrites event.result in place
+        │
+        ▼
+  Tool result appended to agent.messages
+        │
+        ▼
+  Next model call reads it
+```
+
+Both placements carry their weight. `before_tool_call` runs after the model has asked for the tool
+but before any tool code runs, so blocking there means the side effect never happens at all.
+`after_tool_call` runs after the tool returns but before its result is appended to the conversation,
+so rewriting there takes the data out of the history rather than hiding it from the final answer.
+
+Blocking a tool does not raise. The cancellation becomes an ordinary tool result, which the model
+reads and responds to:
+
+```text
+Confirm rejected
+        │
+        ▼
+toolResult status  = "error"
+toolResult content = "CONFIRMATION_FAILED: <your prompt>"
+        │
+        ▼
+Model reads the refusal and finishes its turn
+        │
+        ▼
+stop_reason = "end_turn"
+```
+
 ---
 
 ## Understanding intervention handlers
 
-### The five actions
+<details>
+<summary><b>The five actions</b></summary>
 
 Every lifecycle override returns one of five actions, all importable from `strands.interventions`:
 
@@ -230,7 +232,10 @@ model's response is discarded and the model retries with the feedback. On `befor
 `before_tool_call` the step is cancelled and the feedback becomes its cancellation message, so there
 `Guide` steers by refusing rather than by letting the step run.
 
-### Declaring a handler
+</details>
+
+<details>
+<summary><b>Declaring a handler</b></summary>
 
 ```python
 from strands.interventions import Confirm, InterventionHandler, Proceed, Transform
@@ -263,7 +268,10 @@ handler.before_tool_call = my_function
 
 Override only the hooks you need. Hooks you leave alone are not called at all.
 
-### Two ways to answer a `Confirm`
+</details>
+
+<details>
+<summary><b>Two ways to answer a `Confirm`</b></summary>
 
 `Confirm` behaves differently depending on whether you supply `response`:
 
@@ -279,14 +287,20 @@ queue wants, because the decision can then be answered from somewhere other than
 vended `HumanInTheLoop` handler in [`03-human-in-the-loop`](../03-human-in-the-loop/) is built on
 that second mode.
 
-### How `Confirm` scores the answer
+</details>
+
+<details>
+<summary><b>How `Confirm` scores the answer</b></summary>
 
 `Confirm` does not compare the answer itself. It passes the answer to its `evaluate` function, and
 the default accepts `True`, `'y'`, or `'yes'`, case-insensitive and trimmed, rejecting everything
 else. An empty line is therefore a rejection, so the gate fails closed. Pass your own callable as
 `evaluate=` for a different policy.
 
-### Write the `prompt` for the model, not only for the person
+</details>
+
+<details>
+<summary><b>Write the `prompt` for the model, not only for the person</b></summary>
 
 This is the easiest part to get wrong. On a rejection the tool result carries the literal text
 `CONFIRMATION_FAILED: <prompt>`, so `prompt` is something the model reads. A `prompt` phrased as a
@@ -302,7 +316,10 @@ return Confirm(
 )
 ```
 
-### What `Transform` can and cannot do
+</details>
+
+<details>
+<summary><b>What `Transform` can and cannot do</b></summary>
 
 `Transform(apply=fn)` calls `fn(event)` and ignores whatever `fn` returns, so `fn` has to mutate the
 event rather than build a new one. Later handlers on the same event see the mutation.
@@ -311,7 +328,10 @@ Apart from `Proceed`, which does nothing by design, `Transform` is the only acti
 hooks. That makes it the way to reach content on the `after_*` hooks, where blocking is no longer an
 option.
 
-### Printing the conversation is yours to write
+</details>
+
+<details>
+<summary><b>Printing the conversation is yours to write</b></summary>
 
 The SDK ships no conversation pretty-printer, which is why `main.py` carries its own `print_history`
 helper. `agent.messages` is plain Python data, so `print(agent.messages)` and
@@ -320,9 +340,14 @@ per-message `tracking_id` and `metadata` fields. Walking the blocks yourself als
 `TypeError` that `json.dumps` raises on a history holding binary content blocks, such as an image or
 a document.
 
+</details>
+
 ---
 
 ## Choosing where to intervene
+
+<details>
+<summary><b>Which action fits a decision, how handlers compose, and when to go async</b></summary>
 
 `Confirm` is the right action only when there is a decision left for a person to make. When the
 answer is already known, a cheaper action fits better:
@@ -354,9 +379,14 @@ class RemoteAuth(InterventionHandler):
         return Deny(reason="The authorization service refused this call. Do not retry it.")
 ```
 
+</details>
+
 ---
 
 ## Gating behavior versus capping cost
+
+<details>
+<summary><b>When you want an invocation limit instead of a handler</b></summary>
 
 Interventions decide **what** an agent may do. They do not decide **how much** of it the agent may
 do. A handler that approves every tool call will still approve the hundredth one.
@@ -371,6 +401,8 @@ and reported through `stop_reason` values such as `limit_turns`. See
 
 The two compose cleanly: a handler gates the individual step, and a limit bounds the run containing
 it.
+
+</details>
 
 ---
 

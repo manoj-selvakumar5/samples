@@ -1,5 +1,3 @@
-Part I - Build the agent
-
 # Build your first agent and read what it returns
 
 ## Overview
@@ -30,49 +28,6 @@ tutorial: whether the loop ended on its own, what the final message held, and wh
 - how the agent loop turns one call into as many model round trips as the task needs
 - why an invocation returns an `AgentResult` rather than a string, and what else that object carries
 - how to confirm from the result that the model really called your tool
-
----
-
-## How the agent loop works
-
-`Agent` and `tool` both come from the top-level package: `from strands import Agent, tool`. Invoking
-the agent starts a loop that repeats until the model stops asking for anything:
-
-```text
-agent(prompt)
-      │
-      ▼
-Call the model with the conversation so far,
-the system prompt, and the schema of every tool
-      │
-      ├── the model answers in text ──► return AgentResult
-      │                                 with stop_reason "end_turn"
-      ▼
-The model requests one or more tools instead
-      │
-      ▼
-Run those tools and append their results
-to the conversation
-      │
-      └──────────────────► call the model again
-```
-
-The important detail is that **the exit condition belongs to the model, not to your code**. You do
-not decide how many model calls one invocation takes; the model does, by choosing each turn between
-answering and asking for a tool.
-
-So a single line of your code can hide several round trips. In this tutorial the shortest successful
-run is already two:
-
-```text
-agent(prompt)
-     │
-     │   model call 1    the model requests word_count
-     │   tool run        word_count returns the count
-     │   model call 2    the model turns that count into an answer
-     ▼
-AgentResult
-```
 
 ---
 
@@ -142,7 +97,8 @@ result = agent(prompt)
 The system prompt asks for the tool, but nothing here forces the call. Whether `word_count` runs is
 the model's decision, which is why the script goes on to check the result rather than assume it.
 
-### Expected output
+<details>
+<summary><b>Expected output</b></summary>
 
 Output varies because model wording and token usage are not deterministic. An abbreviated run:
 
@@ -171,11 +127,57 @@ finished result. Every line above comes from `main.py` itself.
 that returns reasoning content alongside its answer would report more. The blank line after `text`
 comes from the text block's own trailing newline.
 
+</details>
+
+---
+
+## How the agent loop works
+
+`Agent` and `tool` both come from the top-level package: `from strands import Agent, tool`. Invoking
+the agent starts a loop that repeats until the model stops asking for anything:
+
+```text
+agent(prompt)
+      │
+      ▼
+Call the model with the conversation so far,
+the system prompt, and the schema of every tool
+      │
+      ├── the model answers in text ──► return AgentResult
+      │                                 with stop_reason "end_turn"
+      ▼
+The model requests one or more tools instead
+      │
+      ▼
+Run those tools and append their results
+to the conversation
+      │
+      └──────────────────► call the model again
+```
+
+The important detail is that **the exit condition belongs to the model, not to your code**. You do
+not decide how many model calls one invocation takes; the model does, by choosing each turn between
+answering and asking for a tool.
+
+So a single line of your code can hide several round trips. In this tutorial the shortest successful
+run is already two:
+
+```text
+agent(prompt)
+     │
+     │   model call 1    the model requests word_count
+     │   tool run        word_count returns the count
+     │   model call 2    the model turns that count into an answer
+     ▼
+AgentResult
+```
+
 ---
 
 ## Understanding the agent and its result
 
-### What `Agent` needs to run
+<details>
+<summary><b>What `Agent` needs to run</b></summary>
 
 Nothing, strictly. Every constructor argument has a default, and `Agent()` with no arguments is a
 working agent with no tools and no instructions.
@@ -197,7 +199,10 @@ Two more arguments are worth knowing about early even though this tutorial leave
 an agent into a tool for another agent with `as_tool()` uses them as the tool's name and
 description, and adding an agent to a graph uses the name as the node id.
 
-### Why the return value is not a string
+</details>
+
+<details>
+<summary><b>Why the return value is not a string</b></summary>
 
 `Agent.__call__` returns an `AgentResult`. Printing one renders the final text, which is why
 `print(agent(prompt))` behaves as though a string came back, but the object carries the rest of the
@@ -212,7 +217,10 @@ result.metrics       # token usage and per-tool call counts
 `main.py` reads all three. `result.message['role']` is `assistant`, and
 `len(result.message['content'])` is how many content blocks that message holds.
 
-### What `stop_reason` tells you
+</details>
+
+<details>
+<summary><b>What `stop_reason` tells you</b></summary>
 
 A returned `AgentResult` does not mean a finished task. `stop_reason` is how the loop ended, and
 `end_turn`, the value in the expected output above, is the one that means the model finished on its
@@ -232,7 +240,10 @@ if result.stop_reason == "end_turn":
 For the budget cases in particular, see
 [09-limits/01-stop-a-runaway-agent](../../09-limits/01-stop-a-runaway-agent/).
 
-### Confirming the tool ran
+</details>
+
+<details>
+<summary><b>Confirming the tool ran</b></summary>
 
 `metrics.tool_metrics` is a dictionary keyed by tool name, and each entry counts the calls:
 
@@ -256,13 +267,19 @@ usage["outputTokens"]
 `accumulated_usage` totals every model call the agent has served, so reusing one agent across
 several invocations keeps adding to it rather than resetting.
 
-### Reading the conversation the agent built
+</details>
+
+<details>
+<summary><b>Reading the conversation the agent built</b></summary>
 
 `agent.messages` holds every turn the loop produced, including the model's tool request and the
 result that was fed back. It is the fastest way to see what the model actually saw, and it persists
 on the agent, so a second invocation continues the same conversation.
 
-### Invoking without blocking
+</details>
+
+<details>
+<summary><b>Invoking without blocking</b></summary>
 
 `agent(prompt)` blocks until the loop finishes. To handle events as they happen instead, iterate the
 async stream:
@@ -274,9 +291,14 @@ async for event in agent.stream_async(prompt):
 
 The loop is the same one. Only the delivery of intermediate events changes.
 
+</details>
+
 ---
 
 ## Writing a docstring the model can use
+
+<details>
+<summary><b>What the decorator reads out of your function, and why vagueness misfires</b></summary>
 
 The `@tool` decorator does not just register the function. It builds the tool definition the model
 reads, and it builds it out of things you have already written:
@@ -296,9 +318,14 @@ Two things follow in practice. Describe when to use the tool, not only what it d
 model is choosing rather than reading reference material. And describe each argument in the `Args:`
 block, because an undescribed argument leaves the model guessing what to put there.
 
+</details>
+
 ---
 
 ## Prose answers versus structured output
+
+<details>
+<summary><b>When to ask for a typed value instead of parsing a sentence</b></summary>
 
 Everything above returns prose. The model writes a sentence, and your code gets that sentence as
 text. That is the right shape when a person reads the answer.
@@ -307,6 +334,8 @@ It is the wrong shape when your code does. Parsing a number back out of "There a
 that sentence" is a habit that fails the first time the model phrases it differently. When the
 caller needs a typed value, ask for one instead of parsing prose: see
 [01-agent/03-structured-output](../03-structured-output/).
+
+</details>
 
 ---
 

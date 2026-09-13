@@ -1,5 +1,3 @@
-Part II - Control the loop
-
 # Limits
 
 **How far execution may continue.**

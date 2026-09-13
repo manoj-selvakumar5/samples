@@ -1,5 +1,3 @@
-Part II - Control the loop
-
 # Stop runaway agent executions with invocation limits
 
 ## Overview
@@ -26,63 +24,6 @@ counters.
 - how to detect that a budget stopped the run, using `stop_reason`
 - why token limits are soft rather than exact
 - how to continue from the valid conversation a limit leaves behind
-
----
-
-## How the agent loop applies a limit
-
-A simplified agent-loop iteration looks like this:
-
-```text
-Start iteration
-      │
-      ▼
-Check invocation limits
-      │
-      ├── limit reached ──► return AgentResult
-      │                     with limit_* stop_reason
-      │
-      ▼
-Call the model
-      │
-      ▼
-Execute any tools requested
-      │
-      ▼
-Update invocation metrics
-      │
-      └──────────────► next iteration
-```
-
-The important detail is **where the check happens**: at the beginning of the next loop iteration.
-
-That makes invocation token limits **soft limits**.
-
-Suppose the total-token limit is 4,000:
-
-```text
-Before turn 5:  3,700 tokens
-                     │
-                     │ under budget
-                     ▼
-                  turn 5 runs
-                     │
-                     ▼
-                 4,350 tokens
-                     │
-                     ▼
-             next iteration begins
-                     │
-                     ▼
-              limit is detected
-                     │
-                     ▼
-                    stop
-```
-
-The final turn is allowed to finish even though it takes the invocation beyond 4,000 tokens.
-
-Treat an invocation limit as a **circuit breaker**, not an exact accounting boundary.
 
 ---
 
@@ -150,7 +91,8 @@ The task and tools do not change. Only the budget assigned to the caller changes
 A smaller budget may stop before the search is complete. A larger budget gives the agent more
 opportunities to continue searching.
 
-### Expected output
+<details>
+<summary><b>Expected output</b></summary>
 
 Output varies because model behavior and token usage are not deterministic. An abbreviated run:
 
@@ -166,8 +108,6 @@ Output varies because model behavior and token usage are not deterministic. An a
 
   It overshot the 4000 cap by <n> tokens: caps are checked
   between turns, so the turn that crossed the line still ran.
-  The agent stopped because the budget ran out, not because the
-  document ended. No wording of the prompt supplies that ending.
 
 === The same question on two callers' budgets ===
 
@@ -183,11 +123,71 @@ Output varies because model behavior and token usage are not deterministic. An a
 the last message is a tool result rather than a final assistant answer. The work collected so far
 remains in the conversation history, which the follow-up invocation can use.
 
+</details>
+
+---
+
+## How the agent loop applies a limit
+
+A simplified agent-loop iteration looks like this:
+
+```text
+Start iteration
+      │
+      ▼
+Check invocation limits
+      │
+      ├── limit reached ──► return AgentResult
+      │                     with limit_* stop_reason
+      │
+      ▼
+Call the model
+      │
+      ▼
+Execute any tools requested
+      │
+      ▼
+Update invocation metrics
+      │
+      └──────────────► next iteration
+```
+
+The important detail is **where the check happens**: at the beginning of the next loop iteration.
+
+That makes invocation token limits **soft limits**.
+
+Suppose the total-token limit is 4,000:
+
+```text
+Before turn 5:  3,700 tokens
+                     │
+                     │ under budget
+                     ▼
+                  turn 5 runs
+                     │
+                     ▼
+                 4,350 tokens
+                     │
+                     ▼
+             next iteration begins
+                     │
+                     ▼
+              limit is detected
+                     │
+                     ▼
+                    stop
+```
+
+The final turn is allowed to finish even though it takes the invocation beyond 4,000 tokens.
+
+Treat an invocation limit as a **circuit breaker**, not an exact accounting boundary.
+
 ---
 
 ## Understanding invocation limits
 
-### Available limits
+<details>
+<summary><b>Available limits</b></summary>
 
 Pass `limits` when invoking the agent:
 
@@ -215,7 +215,10 @@ integer.
 
 The same `limits` parameter is available with `__call__`, `invoke_async`, and `stream_async`.
 
-### What counts as a turn?
+</details>
+
+<details>
+<summary><b>What counts as a turn?</b></summary>
 
 One turn consists of:
 
@@ -231,7 +234,10 @@ of the same turn.
 A turn limit therefore bounds how many times the agent can cycle through a model call and any tools
 that follow.
 
-### Token limits are cumulative
+</details>
+
+<details>
+<summary><b>Token limits are cumulative</b></summary>
 
 `total_tokens` applies across the entire invocation, not to a single model call.
 
@@ -253,7 +259,10 @@ grow quickly during long-running agent loops.
 These limits are different from a model provider's per-response token limit. Invocation limits bound
 the cumulative work performed by the agent loop.
 
-### What happens when a limit is reached?
+</details>
+
+<details>
+<summary><b>What happens when a limit is reached?</b></summary>
 
 Reaching an invocation limit is a normal outcome, not an exception.
 
@@ -295,7 +304,10 @@ Relevant `stop_reason` values include:
 | `limit_turns`, `limit_total_tokens`, `limit_output_tokens` | The matching budget was reached         |
 | `cancelled`                                                | The invocation was cancelled externally |
 
-### Why the conversation can continue
+</details>
+
+<details>
+<summary><b>Why the conversation can continue</b></summary>
 
 When an invocation limit fires, Strands does not interrupt a tool halfway through execution.
 
@@ -340,7 +352,10 @@ One subtlety remains: the agent still has access to its tools during that follow
 it chooses to search again instead of answering, the follow-up can also exhaust its budget. If
 producing a partial answer is mandatory, use a recovery path that cannot invoke additional tools.
 
-### Inspect invocation usage
+</details>
+
+<details>
+<summary><b>Inspect invocation usage</b></summary>
 
 The counters the caps compare against are on the result:
 
@@ -355,9 +370,14 @@ invocation.usage["outputTokens"]  # model-generated tokens only
 These are per-invocation counters, unlike `metrics.accumulated_usage`, which totals every call the
 agent has served.
 
+</details>
+
 ---
 
 ## Choosing a budget
+
+<details>
+<summary><b>How to size a budget, and what to watch in production</b></summary>
 
 There is no universal correct limit.
 
@@ -392,9 +412,14 @@ indefinitely.
 Monitor how often normal invocations reach their limits. If a budget routinely stops legitimate
 work, consider increasing it.
 
+</details>
+
 ---
 
 ## Limits versus cancellation
+
+<details>
+<summary><b>When you want a timeout instead of a budget</b></summary>
 
 Invocation limits bound work, not time. They do not provide a wall-clock timeout.
 
@@ -413,6 +438,8 @@ stop_reason = "cancelled"
 Use invocation limits for budget boundaries and cancellation for external conditions such as
 timeouts, client disconnects, or user-requested stops. See
 [02-stop-it-from-outside](../02-stop-it-from-outside/).
+
+</details>
 
 ---
 
