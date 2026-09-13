@@ -14,76 +14,22 @@ progressing normally, so it keeps requesting the next chunk.
 
 Invocation limits give that run an external stopping condition.
 
-You will learn how to:
-
-- bound the turns and tokens used by a single agent invocation
-- detect when a budget stops the agent using `stop_reason`
-- understand why token limits are soft rather than exact
-- continue from the valid conversation left behind after a limit is reached
-- assign different execution budgets to different callers
-
 `limits` is passed when the agent is invoked, not when the `Agent` is constructed. The budget
 therefore applies to one call. Reusing the same agent starts the next invocation with fresh
 counters.
 
-### Tutorial Details
+---
 
-| Information          | Details                                                                          |
-|:---------------------|:---------------------------------------------------------------------------------|
-| **Strands Features** | Invocation limits (`limits=`), `stop_reason` branching, per-invocation metrics   |
-| **Agent Pattern**    | Single agent, invoked again to land a partial answer after a cap trips           |
-| **Tools**            | Two custom `@tool` functions: a paginated search, and a reader with no last page |
-| **Model**            | SDK default. No model is configured in `main.py`                                 |
+## What you will learn
+
+- how to bound the turns and tokens a single agent invocation may use
+- how to detect that a budget stopped the run, using `stop_reason`
+- why token limits are soft rather than exact
+- how to continue from the valid conversation a limit leaves behind
 
 ---
 
-## What the tutorial demonstrates
-
-The script uses two scenarios.
-
-### 1. Stop a loop with no reliable natural ending
-
-The agent is instructed to read a knowledge base article to the end. The tool contains a pagination
-bug: every response says that more of the article remains.
-
-The agent therefore has no reliable signal that it should stop.
-
-A total-token limit provides that signal:
-
-```python
-RUNAWAY_BUDGET = 4000
-
-result = agent(
-    READ_TASK,
-    limits={"total_tokens": RUNAWAY_BUDGET},
-)
-```
-
-When the budget is reached, Strands stops the loop and returns an `AgentResult` with:
-
-```text
-stop_reason = "limit_total_tokens"
-```
-
-### 2. Give different callers different budgets
-
-The second scenario runs the same support task with different turn budgets:
-
-```python
-TIERS = {
-    "free": {"turns": 3},
-    "pro": {"turns": 10},
-}
-```
-
-The task and tools do not change. Only the budget assigned to the caller changes.
-
-A smaller budget may stop before the search is complete. A larger budget gives the agent more
-opportunities to continue searching.
-
----
-
-## How invocation limits fit into the agent loop
+## How the agent loop applies a limit
 
 A simplified agent-loop iteration looks like this:
 
@@ -137,7 +83,7 @@ Treat an invocation limit as a **circuit breaker**, not an exact accounting boun
 
 ---
 
-## Prerequisites
+## Prerequisites and setup
 
 Before starting, make sure you have:
 
@@ -145,32 +91,65 @@ Before starting, make sure you have:
 - AWS credentials configured
 - access to a supported model in Amazon Bedrock
 
-If your configured AWS Region does not provide access to the model, set `AWS_REGION` to a Region
-that does.
-
----
-
-## Tutorial setup
-
 Install the dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Run the example:
+---
+
+## Run the tutorial
 
 ```bash
 python main.py
 ```
 
----
+The script runs two scenarios.
 
-## Expected output
+### 1. Stop a loop with no reliable natural ending
 
-Output will vary because model behavior and token usage are not deterministic.
+The agent is instructed to read a knowledge base article to the end. The tool contains a pagination
+bug: every response says that more of the article remains.
 
-An abbreviated run looks like:
+The agent therefore has no reliable signal that it should stop.
+
+A total-token limit provides that signal:
+
+```python
+RUNAWAY_BUDGET = 4000
+
+result = agent(
+    READ_TASK,
+    limits={"total_tokens": RUNAWAY_BUDGET},
+)
+```
+
+When the budget is reached, Strands stops the loop and returns an `AgentResult` with:
+
+```text
+stop_reason = "limit_total_tokens"
+```
+
+### 2. Give different callers different budgets
+
+The second scenario runs the same support task with different turn budgets:
+
+```python
+TIERS = {
+    "free": {"turns": 3},
+    "pro": {"turns": 10},
+}
+```
+
+The task and tools do not change. Only the budget assigned to the caller changes.
+
+A smaller budget may stop before the search is complete. A larger budget gives the agent more
+opportunities to continue searching.
+
+### Expected output
+
+Output varies because model behavior and token usage are not deterministic. An abbreviated run:
 
 ```text
 === A loop with no natural ending ===
@@ -228,7 +207,8 @@ All three fields are optional.
 | `total_tokens`  | Cumulative input + output tokens for the invocation | `limit_total_tokens`  |
 | `output_tokens` | Cumulative model-generated tokens                   | `limit_output_tokens` |
 
-Omitting a field means that dimension is not limited.
+Omitting a field means that dimension is not limited. Each cap you do set must be a positive
+integer.
 
 The same `limits` parameter is available with `__call__`, `invoke_async`, and `stream_async`.
 
@@ -247,13 +227,6 @@ of the same turn.
 
 A turn limit therefore bounds how many times the agent can cycle through model reasoning and tool
 execution.
-
-```python
-limits={"turns": 3}
-```
-
-means that the invocation may perform at most three agent-loop iterations before another iteration
-is prevented.
 
 ### Token limits are cumulative
 
@@ -313,13 +286,11 @@ elif result.stop_reason.startswith("limit_"):
 
 Common outcomes in this tutorial are:
 
-| `stop_reason`         | Meaning                                 |
-|:----------------------|:----------------------------------------|
-| `end_turn`            | The model finished normally             |
-| `limit_turns`         | The turn budget was reached             |
-| `limit_total_tokens`  | The total-token budget was reached      |
-| `limit_output_tokens` | The output-token budget was reached     |
-| `cancelled`           | The invocation was cancelled externally |
+| `stop_reason`                                              | Meaning                                 |
+|:-----------------------------------------------------------|:----------------------------------------|
+| `end_turn`                                                 | The model finished normally             |
+| `limit_turns`, `limit_total_tokens`, `limit_output_tokens` | The matching budget was reached         |
+| `cancelled`                                                | The invocation was cancelled externally |
 
 If several limits are reached at the same boundary, Strands reports them in this priority order:
 
@@ -376,46 +347,18 @@ producing a partial answer is mandatory, use a recovery path that cannot invoke 
 
 ### Inspect invocation usage
 
-The metrics used by invocation limits are available on the result:
+The counters the caps compare against are on the result:
 
 ```python
 invocation = result.metrics.latest_agent_invocation
+
+len(invocation.cycles)            # turns used
+invocation.usage["totalTokens"]   # input plus output tokens
+invocation.usage["outputTokens"]  # model-generated tokens only
 ```
 
-Turn usage:
-
-```python
-len(invocation.cycles)
-```
-
-Total-token usage:
-
-```python
-invocation.usage["totalTokens"]
-```
-
-Output-token usage:
-
-```python
-invocation.usage["outputTokens"]
-```
-
-Combined for reporting:
-
-```python
-def spent(result: AgentResult) -> str:
-    invocation = result.metrics.latest_agent_invocation
-
-    return (
-        f"{len(invocation.cycles)} turns, "
-        f"{invocation.usage['totalTokens']} tokens"
-    )
-```
-
-These are **per-invocation** metrics.
-
-They are different from accumulated metrics that track usage across multiple calls served by the
-same agent.
+These are per-invocation counters, unlike `metrics.accumulated_usage`, which totals every call the
+agent has served.
 
 ---
 
@@ -423,19 +366,9 @@ same agent.
 
 There is no universal correct limit.
 
-Choose execution limits based on how much work the caller or application is prepared to spend.
-
-For example:
-
-```python
-TIERS = {
-    "free": {"turns": 3},
-    "pro": {"turns": 10},
-}
-```
-
-Both callers can submit the same task. The difference is how much iterative work each invocation is
-allowed to perform.
+Choose execution limits based on how much work the caller or application is prepared to spend. The
+tier budgets in scenario 2 are that idea in full: both callers submit the same task, and the only
+difference is how much iterative work each invocation may perform.
 
 In production, useful limits usually reflect:
 
@@ -458,22 +391,17 @@ limits={
 }
 ```
 
-This prevents either an excessive number of reasoning cycles or unexpectedly large token consumption
-from allowing the invocation to continue indefinitely.
+Neither runaway reasoning cycles nor unexpected token growth can then carry an invocation on
+indefinitely.
+
+Monitor how often healthy invocations reach their limits. A budget that routinely stops legitimate
+work is too small.
 
 ---
 
 ## Limits versus cancellation
 
-Invocation limits bound **work**:
-
-```text
-turns
-total tokens
-output tokens
-```
-
-They do not provide a wall-clock timeout.
+Invocation limits bound work, not time. They do not provide a wall-clock timeout.
 
 If the requirement is:
 
@@ -490,20 +418,6 @@ stop_reason = "cancelled"
 Use invocation limits for budget boundaries and cancellation for external conditions such as
 timeouts, client disconnects, or user-requested stops. See
 [02-stop-it-from-outside](../02-stop-it-from-outside/).
-
----
-
-## Behavior to remember
-
-- Limits apply to one invocation. Reusing an agent starts the next invocation with fresh counters.
-- Token limits are soft because they are checked between turns.
-- Tools requested during a turn finish before the next limit check.
-- Reaching a limit returns an `AgentResult`; it does not raise merely because the budget was
-  exhausted.
-- Each configured limit must be a positive integer.
-- Inspect `stop_reason` before assuming that the requested task completed.
-- Monitor how often healthy invocations reach their limits. A budget that routinely stops legitimate
-  work is probably too small.
 
 ---
 
