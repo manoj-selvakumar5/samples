@@ -1,133 +1,514 @@
 Part II - Control the loop
 
-# Stop a runaway agent
+# Stop runaway agent executions with invocation limits
 
-Bound what one invocation may spend, so a run that will not end still returns.
+## Overview
 
-Some tasks have no natural ending. The model keeps working because every tool result looks like
-progress, and nothing in the loop ever tells it to give up. A budget is what ends those runs.
+Agents can keep working as long as each turn gives the model a reason to continue. Usually the loop
+ends naturally when the model has enough information to answer. But some tasks do not have a
+reliable stopping point.
 
-A cap belongs to one call rather than to the agent, so `limits` is passed at invocation time.
-Nothing raises when a cap trips: the loop stops between iterations and names the cap in
-`stop_reason`, leaving a conversation you can call again on a larger budget.
+In this tutorial, a billing support agent encounters a pagination bug. Every call to `read_article`
+returns another chunk and claims that more content remains. From the model's perspective the run is
+progressing normally, so it keeps requesting the next chunk.
 
-## Teaches
+Invocation limits give that run an external stopping condition.
 
-| Symbol | Where it comes from |
-|--------|---------------------|
-| `Limits` | `strands.types.Limits`, a `TypedDict`, so a plain dict works and this script passes one |
-| `limits=` | keyword on `Agent.__call__`, `invoke_async`, and `stream_async` |
-| `result.stop_reason` | names the cap that fired: `limit_turns`, `limit_total_tokens`, or `limit_output_tokens` |
-| `result.metrics.latest_agent_invocation` | the per-call counters the caps compare against |
+You will learn how to:
+
+- bound the turns and tokens used by a single agent invocation
+- detect when a budget stops the agent using `stop_reason`
+- understand why token limits are soft rather than exact
+- continue from the valid conversation left behind after a limit is reached
+- assign different execution budgets to different callers
+
+`limits` is passed when the agent is invoked, not when the `Agent` is constructed. The budget
+therefore applies to one call. Reusing the same agent starts the next invocation with fresh
+counters.
+
+### Tutorial Details
+
+| Information          | Details                                                                          |
+|:---------------------|:---------------------------------------------------------------------------------|
+| **Strands Features** | Invocation limits (`limits=`), `stop_reason` branching, per-invocation metrics   |
+| **Agent Pattern**    | Single agent, invoked again to land a partial answer after a cap trips           |
+| **Tools**            | Two custom `@tool` functions: a paginated search, and a reader with no last page |
+| **Model**            | SDK default. No model is configured in `main.py`                                 |
+
+---
+
+## What the tutorial demonstrates
+
+The script uses two scenarios.
+
+### 1. Stop a loop with no reliable natural ending
+
+The agent is instructed to read a knowledge base article to the end. The tool contains a pagination
+bug: every response says that more of the article remains.
+
+The agent therefore has no reliable signal that it should stop.
+
+A total-token limit provides that signal:
+
+```python
+RUNAWAY_BUDGET = 4000
+
+result = agent(
+    READ_TASK,
+    limits={"total_tokens": RUNAWAY_BUDGET},
+)
+```
+
+When the budget is reached, Strands stops the loop and returns an `AgentResult` with:
+
+```text
+stop_reason = "limit_total_tokens"
+```
+
+### 2. Give different callers different budgets
+
+The second scenario runs the same support task with different turn budgets:
+
+```python
+TIERS = {
+    "free": {"turns": 3},
+    "pro": {"turns": 10},
+}
+```
+
+The task and tools do not change. Only the budget assigned to the caller changes.
+
+A smaller budget may stop before the search is complete. A larger budget gives the agent more
+opportunities to continue searching.
+
+---
+
+## How invocation limits fit into the agent loop
+
+A simplified agent-loop iteration looks like this:
+
+```text
+Start iteration
+      │
+      ▼
+Check invocation limits
+      │
+      ├── limit reached ──► return AgentResult
+      │                     with limit_* stop_reason
+      │
+      ▼
+Call the model
+      │
+      ▼
+Execute any tools requested
+      │
+      ▼
+Update invocation metrics
+      │
+      └──────────────► next iteration
+```
+
+The important detail is **where the check happens**: at the beginning of the next loop iteration.
+
+That makes invocation token limits **soft limits**.
+
+Suppose the total-token limit is 4,000:
+
+```text
+Before turn 5:  3,700 tokens
+                     │
+                     │ under budget
+                     ▼
+                  turn 5 runs
+                     │
+                     ▼
+            next iteration begins
+                     │
+                     ▼
+              limit is detected
+                     │
+                     ▼
+                    stop
+```
+
+The final turn is allowed to finish even though it takes the invocation beyond 4,000 tokens.
+
+Treat an invocation limit as a **circuit breaker**, not an exact accounting boundary.
+
+---
 
 ## Prerequisites
 
-- Python 3.10 or later
-- AWS credentials configured, and model access enabled in Amazon Bedrock
+Before starting, make sure you have:
 
-## Run
+- Python 3.10 or later
+- AWS credentials configured
+- access to a supported model in Amazon Bedrock
+
+If your configured AWS Region does not provide access to the model, set `AWS_REGION` to a Region
+that does.
+
+---
+
+## Tutorial setup
+
+Install the dependencies:
 
 ```bash
 pip install -r requirements.txt
+```
+
+Run the example:
+
+```bash
 python main.py
 ```
 
-## The three caps
+---
 
-Every field is optional, and an omitted field means no limit on that dimension.
+## Expected output
 
-| Field | Bounds | Trips with `stop_reason` |
-|-------|--------|--------------------------|
-| `turns` | Trips through the agent loop | `limit_turns` |
-| `total_tokens` | Input plus output tokens, as `usage["totalTokens"]` | `limit_total_tokens` |
-| `output_tokens` | Model-generated tokens only | `limit_output_tokens` |
+Output will vary because model behavior and token usage are not deterministic.
 
-## What `stop_reason` tells you
+An abbreviated run looks like:
 
-**Reaching a limit is an outcome, not an exception.** Inspect `stop_reason` to decide what your
-application does next.
+```text
+=== A loop with no natural ending ===
 
-| `stop_reason` | Meaning | What to do |
-|---------------|---------|------------|
-| `end_turn` | The model chose to finish | Use the text |
-| `limit_turns` | The invocation's turn budget stopped the loop | Land or resume on a larger budget |
-| `limit_total_tokens` | The invocation's token budget stopped the loop | Land or resume on a larger budget |
-| `limit_output_tokens` | The cumulative generated-token budget stopped the loop | Land or resume on a larger budget |
-| `cancelled` | The caller stopped it | Do not retry automatically |
+    [tool] read_article('KB-207', offset=0)
+    [tool] read_article('KB-207', offset=80)
+    ...
+  stop_reason : limit_total_tokens
+  spent       : <turns> turns, <tokens> tokens
+  text        : ''
 
-There is no time dimension, which is the first thing most readers come here looking for. A
-wall-clock bound is cancellation, not a limit, and it reports `cancelled` rather than a `limit_*`
-value. See [`02-stop-it-from-outside`](../02-stop-it-from-outside/).
+  It overshot the 4000 cap by <n> tokens: caps are checked
+  between turns, so the turn that crossed the line still ran.
+  The agent stopped because the budget ran out, not because the
+  document ended. No wording of the prompt supplies that ending.
 
-## Note the following
+=== The same question on two callers' budgets ===
 
-- **There is no cap unless you pass one.** An agent invoked without `limits` runs until the model
-  decides it is finished. When the tools never signal an ending, nothing in the loop supplies one.
-- **The runaway here is a pagination bug, not a bad prompt.** The tool reports a total computed from
-  the offset, so the end of the article always stays ahead of the reader. Every response looks like
-  ordinary progress. This matters because the usual advice, write a better prompt, does not help:
-  there is no wording that makes an article with no last page have a last page.
-- **A tripped limit is not an exception.** The invocation returns an `AgentResult` normally and the
-  cap shows up in `stop_reason`, so code that assumes a returned result means a completed task will
-  silently accept a truncated one.
-- **After a cap trips, the result has no text.** `AgentResult.message` is the last message in the
-  conversation, and on a trip that is the message holding the tool result, not an assistant reply,
-  so `str(result)` is the empty string.
-- **Reaching a limit leaves the conversation reinvokable.** Tools requested by the last turn have
-  already completed, so the history never ends on an unanswered tool call and the same agent can be
-  called again. The script's free tier uses this to spend one final turn summarizing what it found,
-  which is what turns an empty result into a partial answer.
-- **A one-turn landing call is not guaranteed to produce text.** A turn is a model call plus any
-  tools it requests, and the cap is only checked before the *next* turn. If the model spends that
-  turn on another tool call instead of answering, the run ends on a tool result again. Give the
-  landing call its own tool-free agent if you need the partial answer to be certain.
-- **The cap belongs to the call, not the agent.** Counters are not cumulative across reuses, so a
-  second `agent(...)` starts from zero. That is what makes a tripped run resumable.
-- **Caps are soft.** They are checked at the top of each loop iteration, never mid-call, so the
-  iteration that crosses the line still finishes and the run lands past its cap. Treat a cap as a
-  circuit breaker, not an accounting guarantee.
-- **Read the per-invocation counters, not the lifetime ones.** The caps compare against
-  `result.metrics.latest_agent_invocation.usage`, and `total_tokens` specifically against its
-  `totalTokens` field. `metrics.accumulated_usage` on the same object is the agent's total across
-  every call it has served, so on a reused agent it is not the number being enforced.
-- **A turn is a trip through the loop, not a model call.** One turn is one model call plus any tools
-  it requested, however many of those run in parallel. The script's tools are often called three at
-  a time inside a single turn.
-- **Priority on a simultaneous trip is `turns`, then `total_tokens`, then `output_tokens`.** When a
-  budget sets more than one cap, `stop_reason` names whichever bound bit first in that order.
-- **A malformed cap does raise, before any model call.** Zero, a negative, a float, a string, and
-  `True` all raise `TypeError` during validation, so a bad cap costs nothing. Only a *tripped* cap
-  is the quiet path.
-- **Unknown keys are ignored silently.** `limits={"turn": 5}` is a typo, not an error, and the run
-  is uncapped. Only the three documented fields are read.
-- **Size the cap to what you will spend, not to what the task needs.** You rarely know a task's
-  length in advance. Pick the number from the caller's allowance, let it trip, and raise it if the
-  work was worth continuing.
-- **A token cap is a proxy for spend, not a measure of it.** The same token count costs very
-  different amounts on different models, so a budget tuned for one model is wrong for the next.
-- **Branch on `stop_reason`, do not test it for equality with `end_turn`.** A `limit_*` value means
-  resume or land on a larger budget. `cancelled` means the caller stopped it, so do not retry
-  automatically. `guardrail_intervened` and `content_filtered` are terminal and should surface a
-  refusal.
+  free tier, limits={'turns': 3}
+    [tool] search_kb('duplicate charge', page 1)
+    ...
+  out of budget, asking for what it has so far
+  stopped_by  : limit_turns
+  partial     : ...
+```
 
-## Variations
+The `text` field is empty because the last message after a trip is a tool result rather than an
+assistant reply. The work so far is in `agent.messages`, which is what the follow-up invocation
+summarizes.
 
-- **Resume instead of landing** by calling the agent again with a larger budget and a short nudge.
-  Tools requested by the previous turn always run to completion before a cap fires, so the
-  conversation is never left with a dangling tool call and the history carries the context.
-- **Derive the cap from the request** rather than the tier, using the caller's remaining quota.
-  `limits` is a per-call argument rather than agent configuration, so nothing stops you.
-- **Charge the landing call to the caller too**, or absorb it, but decide deliberately: it is a real
-  invocation with its own cost.
-- **Combine caps** when one boundary is not enough, for example
-  `limits={"turns": 10, "total_tokens": 50_000, "output_tokens": 5_000}`. The script's tiers each set
-  a single cap so that one example teaches one bound.
-- **Pass `limits` to `stream_async`** as well. The same keyword exists on all three invoke paths.
+---
 
-## See also
+## Understanding invocation limits
 
-- [`09-limits/02-stop-it-from-outside`](../02-stop-it-from-outside/) for bounding wall-clock time.
-- [`07-interventions/01-intervention-basics`](../../07-interventions/01-intervention-basics/) for gating *what*
-  the agent does rather than *how much*.
+### Available limits
 
-Verified against strands-agents 1.54.0 on 2026-09-11
+Pass `limits` when invoking the agent:
+
+```python
+result = agent(
+    question,
+    limits={
+        "turns": 10,
+        "total_tokens": 20_000,
+        "output_tokens": 2_000,
+    },
+)
+```
+
+All three fields are optional.
+
+| Limit           | What it bounds                                      | Stop reason           |
+|:----------------|:----------------------------------------------------|:----------------------|
+| `turns`         | Agent-loop iterations                               | `limit_turns`         |
+| `total_tokens`  | Cumulative input + output tokens for the invocation | `limit_total_tokens`  |
+| `output_tokens` | Cumulative model-generated tokens                   | `limit_output_tokens` |
+
+Omitting a field means that dimension is not limited.
+
+The same `limits` parameter is available with `__call__`, `invoke_async`, and `stream_async`.
+
+### What counts as a turn?
+
+One turn consists of:
+
+```text
+one model call
+      +
+any tool execution requested by that model call
+```
+
+For example, if one model response requests three tools in parallel, those tool calls are still part
+of the same turn.
+
+A turn limit therefore bounds how many times the agent can cycle through model reasoning and tool
+execution.
+
+```python
+limits={"turns": 3}
+```
+
+means that the invocation may perform at most three agent-loop iterations before another iteration
+is prevented.
+
+### Token limits are cumulative
+
+`total_tokens` applies across the entire invocation, not to a single model call.
+
+For example:
+
+```text
+Model call 1       900 tokens
+Model call 2     1,200 tokens
+Model call 3     1,500 tokens
+                 ------------
+Invocation total 3,600 tokens
+```
+
+Each later model call also sees conversation history from earlier turns, so token consumption can
+grow quickly during long-running agent loops.
+
+`output_tokens` works similarly, but counts only tokens generated by the model.
+
+These limits are different from a model provider's per-response token limit. Invocation limits bound
+the cumulative work performed by the agent loop.
+
+### What happens when a limit is reached?
+
+Reaching an invocation limit is a normal outcome, not an exception.
+
+The call still returns an `AgentResult`:
+
+```python
+result = agent(
+    question,
+    limits={"turns": 3},
+)
+
+print(result.stop_reason)
+```
+
+If the turn budget was exhausted:
+
+```text
+limit_turns
+```
+
+Your application should not assume that receiving an `AgentResult` means the task completed.
+
+Inspect `stop_reason`:
+
+```python
+if result.stop_reason == "end_turn":
+    # The model completed normally.
+    ...
+elif result.stop_reason.startswith("limit_"):
+    # The invocation exhausted one of its budgets.
+    ...
+```
+
+Common outcomes in this tutorial are:
+
+| `stop_reason`         | Meaning                                 |
+|:----------------------|:----------------------------------------|
+| `end_turn`            | The model finished normally             |
+| `limit_turns`         | The turn budget was reached             |
+| `limit_total_tokens`  | The total-token budget was reached      |
+| `limit_output_tokens` | The output-token budget was reached     |
+| `cancelled`           | The invocation was cancelled externally |
+
+If several limits are reached at the same boundary, Strands reports them in this priority order:
+
+```text
+turns
+total_tokens
+output_tokens
+```
+
+### Why the conversation can continue
+
+When an invocation limit fires, Strands does not interrupt a tool halfway through execution.
+
+Tools requested during the current turn finish before the next limit check. As a result, the
+conversation history is left in a valid state.
+
+That means the same agent can be invoked again:
+
+```python
+result = agent(
+    question,
+    limits={"turns": 3},
+)
+
+if result.stop_reason == "limit_turns":
+    continuation = agent(
+        "Stop searching. Answer from what you have found so far.",
+        limits={
+            "turns": 1,
+            "output_tokens": 400,
+        },
+    )
+```
+
+The second invocation gets a fresh budget but retains the conversation accumulated by the agent.
+
+This creates two useful recovery strategies:
+
+```text
+Budget exhausted
+       │
+       ├── continue the work with a larger budget
+       │
+       └── stop gathering information and summarize
+           what has already been found
+```
+
+The tutorial uses the second approach for any tier whose budget runs out, which in practice is
+usually the smaller one.
+
+One subtlety remains: the agent still has access to its tools during that follow-up invocation. If
+it chooses to search again instead of answering, the follow-up can also exhaust its budget. If
+producing a partial answer is mandatory, use a recovery path that cannot invoke additional tools.
+
+### Inspect invocation usage
+
+The metrics used by invocation limits are available on the result:
+
+```python
+invocation = result.metrics.latest_agent_invocation
+```
+
+Turn usage:
+
+```python
+len(invocation.cycles)
+```
+
+Total-token usage:
+
+```python
+invocation.usage["totalTokens"]
+```
+
+Output-token usage:
+
+```python
+invocation.usage["outputTokens"]
+```
+
+Combined for reporting:
+
+```python
+def spent(result: AgentResult) -> str:
+    invocation = result.metrics.latest_agent_invocation
+
+    return (
+        f"{len(invocation.cycles)} turns, "
+        f"{invocation.usage['totalTokens']} tokens"
+    )
+```
+
+These are **per-invocation** metrics.
+
+They are different from accumulated metrics that track usage across multiple calls served by the
+same agent.
+
+---
+
+## Choosing a budget
+
+There is no universal correct limit.
+
+Choose execution limits based on how much work the caller or application is prepared to spend.
+
+For example:
+
+```python
+TIERS = {
+    "free": {"turns": 3},
+    "pro": {"turns": 10},
+}
+```
+
+Both callers can submit the same task. The difference is how much iterative work each invocation is
+allowed to perform.
+
+In production, useful limits usually reflect:
+
+- cost budgets
+- request service-level objectives
+- caller entitlements
+- expected task complexity
+- protection from unexpected agent or tool behavior
+
+A token limit is useful for controlling model consumption, but tokens are only a proxy for monetary
+cost because pricing varies by model.
+
+Turn and token limits can also complement each other:
+
+```python
+limits={
+    "turns": 10,
+    "total_tokens": 50_000,
+    "output_tokens": 5_000,
+}
+```
+
+This prevents either an excessive number of reasoning cycles or unexpectedly large token consumption
+from allowing the invocation to continue indefinitely.
+
+---
+
+## Limits versus cancellation
+
+Invocation limits bound **work**:
+
+```text
+turns
+total tokens
+output tokens
+```
+
+They do not provide a wall-clock timeout.
+
+If the requirement is:
+
+> Stop this request after 30 seconds.
+
+that is a cancellation problem rather than an invocation-limit problem.
+
+A cancelled invocation reports:
+
+```text
+stop_reason = "cancelled"
+```
+
+Use invocation limits for budget boundaries and cancellation for external conditions such as
+timeouts, client disconnects, or user-requested stops. See
+[02-stop-it-from-outside](../02-stop-it-from-outside/).
+
+---
+
+## Behavior to remember
+
+- Limits apply to one invocation. Reusing an agent starts the next invocation with fresh counters.
+- Token limits are soft because they are checked between turns.
+- Tools requested during a turn finish before the next limit check.
+- Reaching a limit returns an `AgentResult`; it does not raise merely because the budget was
+  exhausted.
+- Each configured limit must be a positive integer.
+- Inspect `stop_reason` before assuming that the requested task completed.
+- Monitor how often healthy invocations reach their limits. A budget that routinely stops legitimate
+  work is probably too small.
+
+---
+
+## Additional resources
+
+- [Agent Loop](https://strandsagents.com/docs/user-guide/concepts/agents/agent-loop/), whose
+  "Invocation Limits" section documents these semantics.
+- [Operating Agents in Production](https://strandsagents.com/docs/user-guide/deploy/operating-agents-in-production/)
